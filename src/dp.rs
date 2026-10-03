@@ -184,26 +184,47 @@ fn split(st: u64) -> (u64, u64) {
     (st >> 32, st & 0xFFFF_FFFF)
 }
 
+/// 幅 n の行を左右反転する
+fn mirror(n: usize, row: u64) -> u64 {
+    row.reverse_bits() >> (64 - n)
+}
+
+/// 状態とその左右反転のうち、キーが小さい方。
+/// 左右反転した状態は、その先の探索も鏡写しで最小塗り数も同じなので、1 つにまとめてよい
+fn canonical(n: usize, up: u64, cur: u64) -> u64 {
+    key(up, cur).min(key(mirror(n, up), mirror(n, cur)))
+}
+
 /// 行 first の状態 start から行 last まで DP を進める。
 /// keep(k, c): 行 k までの塗り数が c の状態を残すか。
 /// 行 last の各状態について on_last(上の行, 今の行, 塗り数) を呼ぶ。
 /// 次の行の表は今の行の表だけから作れるので、表は 2 枚だけ持つ。
+/// symmetric なら、左右反転で重なる状態を 1 つにまとめる（問題全体が左右対称なときだけ使える）。
 /// 戻り値は (遷移の数, 1 行あたりの状態数の最大)
 fn forward(
     n: usize,
     start: impl IntoIterator<Item = (u64, u64, usize)>,
     first: usize,
     last: usize,
+    symmetric: bool,
     keep: impl Fn(usize, usize) -> bool,
     mut on_last: impl FnMut(u64, u64, usize),
 ) -> (u64, usize) {
     assert!((1..=30).contains(&n), "n must be in 1..=30");
     let full = (1u64 << n) - 1;
+    let make_key = |up, cur| {
+        if symmetric {
+            canonical(n, up, cur)
+        } else {
+            key(up, cur)
+        }
+    };
     // 状態 → 行 k までの最小塗り数
     let mut table: HashMap<u64, u16> = HashMap::default();
     for (up, cur, c) in start {
         if keep(first, c) {
-            table.insert(key(up, cur), c as u16);
+            let e = table.entry(make_key(up, cur)).or_insert(u16::MAX);
+            *e = (*e).min(c as u16);
         }
     }
     let mut transitions = 0u64;
@@ -221,7 +242,7 @@ fn forward(
                 let w = v + down.count_ones() as u16;
                 transitions += 1;
                 if keep(k + 1, w as usize) {
-                    let e = next.entry(key(cur, down)).or_insert(u16::MAX);
+                    let e = next.entry(make_key(cur, down)).or_insert(u16::MAX);
                     if w < *e {
                         *e = w;
                     }
@@ -253,6 +274,9 @@ pub fn search(n: usize, budget: usize, bounds: &Bounds) -> Outcome {
         (0..=full).map(|row| (0, row, row.count_ones() as usize)),
         0,
         n - 1,
+        // 盤も条件も左右対称なので、左右反転で重なる状態をまとめる。
+        // 最後の状態が鏡写しになっていても、解を左右反転すればその最後の 2 行を持つ解になる
+        true,
         |k, c| c + lb[n - 1 - k] <= budget,
         |up, cur, c| {
             // 盤外の行は塗れないので、最後の行に強制マスがあってはいけない
@@ -305,6 +329,8 @@ fn pin_far_end(
         [(start_up, near[t - 1], near_cost)],
         t - 1,
         b,
+        // 両端の行が固定されていて左右対称ではないので、まとめない
+        false,
         |k, c| {
             if k < b {
                 // 行 k+1..=b は未定、far 側は確定
