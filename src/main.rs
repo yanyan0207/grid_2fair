@@ -37,17 +37,28 @@ fn run(n: usize, algo: Algo) {
             (board, Some(nodes))
         }
         Algo::Dp => {
-            let board = dp::solve_by_budget(n, |budget, o| {
-                let result = if o.board.is_some() {
-                    "解あり"
-                } else {
-                    "解なし"
-                };
-                println!(
-                    "budget {budget}: {result} (transitions: {}, max states: {})",
-                    o.transitions, o.max_states
-                );
-            });
+            let board = dp::solve_by_budget(
+                n,
+                |budget, o| {
+                    let result = if o.min.is_some() {
+                        "解あり"
+                    } else {
+                        "解なし"
+                    };
+                    println!(
+                        "budget {budget}: {result} (transitions: {}, max states: {}, {:.2?})",
+                        o.transitions,
+                        o.max_states,
+                        start.elapsed()
+                    );
+                },
+                |known, transitions, max_states| {
+                    println!(
+                        "  復元 {known}/{n} 行 (transitions: {transitions}, max states: {max_states}, {:.2?})",
+                        start.elapsed()
+                    );
+                },
+            );
             (board, None)
         }
     };

@@ -4,11 +4,15 @@
 //! 上から 1 行ずつ、到達できる状態とそこまでの最小塗り数を更新していく。
 //!
 //! 予算 budget を決めて「budget 個以下で塗れるか」を判定する。
-//! 行 0..=k の塗り数 c に、残りの行に最低限必要な塗り数 lb[n-1-k] を足して
+//! 行 0..=k の塗り数 c に、残りの行に最低限必要な塗り数 anchored[n-1-k] を足して
 //! 予算を超える状態は捨てる。下界は高さ h の帯の最小値（strip_min）から作る。
 //!
 //! 予算を下界から 1 つずつ上げ、最初に解が見つかった予算が a(n)。
 //! それより小さい予算では「解なし」が示されたことになる。
+//!
+//! 判定には直前の行の表しか要らないので、表は 2 枚だけ持つ。
+//! そのため盤面はたどれない。盤面は、確定した端の 2 行から出発して
+//! 反対側の端の 2 行を確定させる DP を、向きを交互に変えて繰り返して復元する（reconstruct）。
 
 use rustc_hash::FxHashMap as HashMap;
 
@@ -123,51 +127,48 @@ fn column_requirements(
     Some((must1, must0))
 }
 
-/// lb[m]: 盤の下端に接する m 行に最低限必要な塗り数（m = 0..=n）。
-/// 下端に接する高さ h の帯（strip_min(.., true, false)）と、
+/// 残りの行に最低限必要な塗り数（いずれも m = 0..=n で引く）
+pub struct Bounds {
+    /// anchored[m]: 盤の下端に接する m 行に最低限必要な塗り数
+    pub anchored: Vec<usize>,
+    /// free[m]: 上下の外側を自由とみなした連続する m 行に最低限必要な塗り数
+    pub free: Vec<usize>,
+}
+
+/// 下界を作る。下端に接する高さ h の帯（strip_min(.., true, false)）と、
 /// 外側が両方自由な帯（strip_min(.., true, true)）に分けた和の最大
-pub fn lower_bounds(n: usize, max_h: usize) -> Vec<usize> {
+pub fn lower_bounds(n: usize, max_h: usize) -> Bounds {
     let max_h = max_h.min(n);
-    let free: Vec<usize> = (0..=max_h)
-        .map(|h| {
-            if h == 0 {
-                0
-            } else {
-                strip_min(n, h, true, true)
-            }
-        })
-        .collect();
-    let bottom: Vec<usize> = (0..=max_h)
-        .map(|h| {
-            if h == 0 {
-                0
-            } else {
-                strip_min(n, h, true, false)
-            }
-        })
-        .collect();
-    // g[j]: 外側自由な帯だけで j 行を分けたときの和の最大
-    let mut g = vec![0; n + 1];
+    let strip = |h: usize, bot_free: bool| {
+        if h == 0 {
+            0
+        } else {
+            strip_min(n, h, true, bot_free)
+        }
+    };
+    let free_strip: Vec<usize> = (0..=max_h).map(|h| strip(h, true)).collect();
+    let bottom_strip: Vec<usize> = (0..=max_h).map(|h| strip(h, false)).collect();
+    let mut free = vec![0; n + 1];
     for j in 1..=n {
-        g[j] = (1..=max_h.min(j))
-            .map(|t| free[t] + g[j - t])
+        free[j] = (1..=max_h.min(j))
+            .map(|t| free_strip[t] + free[j - t])
             .max()
             .unwrap();
     }
-    let mut lb = vec![0; n + 1];
+    let mut anchored = vec![0; n + 1];
     for m in 1..=n {
-        lb[m] = (1..=max_h.min(m))
-            .map(|h| bottom[h] + g[m - h])
+        anchored[m] = (1..=max_h.min(m))
+            .map(|h| bottom_strip[h] + free[m - h])
             .max()
             .unwrap();
     }
-    lb
+    Bounds { anchored, free }
 }
 
 /// 1 回の予算判定の結果
 pub struct Outcome {
-    /// 予算以内の最小解。なければ None
-    pub board: Option<Board>,
+    /// 予算以内で塗れるときの最小塗り数と、そのときの最後の状態。塗れなければ None
+    pub min: Option<(usize, u64)>,
     /// 遷移の数
     pub transitions: u64,
     /// 1 行あたりの状態数の最大
@@ -179,48 +180,50 @@ fn key(up: u64, cur: u64) -> u64 {
     up << 32 | cur
 }
 
-/// budget 個以下で塗れるかを判定し、塗れるなら最小解を返す
-pub fn search(n: usize, budget: usize, lb: &[usize]) -> Outcome {
+fn split(st: u64) -> (u64, u64) {
+    (st >> 32, st & 0xFFFF_FFFF)
+}
+
+/// 行 first の状態 start から行 last まで DP を進める。
+/// keep(k, c): 行 k までの塗り数が c の状態を残すか。
+/// 行 last の各状態について on_last(上の行, 今の行, 塗り数) を呼ぶ。
+/// 次の行の表は今の行の表だけから作れるので、表は 2 枚だけ持つ。
+/// 戻り値は (遷移の数, 1 行あたりの状態数の最大)
+fn forward(
+    n: usize,
+    start: impl IntoIterator<Item = (u64, u64, usize)>,
+    first: usize,
+    last: usize,
+    keep: impl Fn(usize, usize) -> bool,
+    mut on_last: impl FnMut(u64, u64, usize),
+) -> (u64, usize) {
     assert!((1..=30).contains(&n), "n must be in 1..=30");
     let full = (1u64 << n) - 1;
-    let keep = |k: usize, c: usize| c + lb[n - 1 - k] <= budget;
-
-    // layers[k]: 行 k までの状態 → (最小塗り数, 1 つ前の状態の上の行)
-    let mut layers: Vec<HashMap<u64, (u16, u32)>> = Vec::with_capacity(n);
-    let mut first = HashMap::default();
-    for row in 0..=full {
-        let c = row.count_ones() as usize;
-        if keep(0, c) {
-            first.insert(key(0, row), (c as u16, 0));
+    // 状態 → 行 k までの最小塗り数
+    let mut table: HashMap<u64, u16> = HashMap::default();
+    for (up, cur, c) in start {
+        if keep(first, c) {
+            table.insert(key(up, cur), c as u16);
         }
     }
-    layers.push(first);
-
     let mut transitions = 0u64;
-    let mut best: Option<(u16, u64)> = None;
-    for k in 0..n {
-        let mut next = HashMap::default();
-        for (&st, &(v, _)) in &layers[k] {
-            let (up, cur) = (st >> 32, st & 0xFFFF_FFFF);
+    let mut max_states = table.len();
+    for k in first..last {
+        let mut next: HashMap<u64, u16> = HashMap::default();
+        for (&st, &v) in &table {
+            let (up, cur) = split(st);
             let Some(forced) = forced_below(full, up, cur) else {
                 continue;
             };
-            if k + 1 == n {
-                // 盤外の行は塗れない
-                if forced == 0 && best.is_none_or(|(b, _)| v < b) {
-                    best = Some((v, st));
-                }
-                continue;
-            }
             let mut sub = cur;
             loop {
                 let down = forced | sub;
                 let w = v + down.count_ones() as u16;
                 transitions += 1;
                 if keep(k + 1, w as usize) {
-                    let e = next.entry(key(cur, down)).or_insert((u16::MAX, 0));
-                    if w < e.0 {
-                        *e = (w, up as u32);
+                    let e = next.entry(key(cur, down)).or_insert(u16::MAX);
+                    if w < *e {
+                        *e = w;
                     }
                 }
                 if sub == 0 {
@@ -229,52 +232,169 @@ pub fn search(n: usize, budget: usize, lb: &[usize]) -> Outcome {
                 sub = (sub - 1) & cur;
             }
         }
-        if k + 1 < n {
-            layers.push(next);
-        }
+        // 行 k の表はもう使わないので捨てる
+        table = next;
+        max_states = max_states.max(table.len());
     }
-    let max_states = layers.iter().map(HashMap::len).max().unwrap_or(0);
+    for (&st, &v) in &table {
+        let (up, cur) = split(st);
+        on_last(up, cur, v as usize);
+    }
+    (transitions, max_states)
+}
 
-    let board = best.map(|(_, mut st)| {
-        // 後ろから親をたどって各行を復元する
-        let mut rows = vec![0u64; n];
-        for k in (0..n).rev() {
-            let (up, cur) = (st >> 32, st & 0xFFFF_FFFF);
-            rows[k] = cur;
-            let (_, parent) = layers[k][&st];
-            st = key(parent as u64, up);
-        }
-        let mut board = Board::new(n);
-        for (r, &row) in rows.iter().enumerate() {
-            for c in 0..n {
-                board.painted[r * n + c] = row >> c & 1 == 1;
+/// budget 個以下で塗れるかを判定する
+pub fn search(n: usize, budget: usize, bounds: &Bounds) -> Outcome {
+    let full = (1u64 << n) - 1;
+    let lb = &bounds.anchored;
+    let mut min: Option<(usize, u64)> = None;
+    let (transitions, max_states) = forward(
+        n,
+        (0..=full).map(|row| (0, row, row.count_ones() as usize)),
+        0,
+        n - 1,
+        |k, c| c + lb[n - 1 - k] <= budget,
+        |up, cur, c| {
+            // 盤外の行は塗れないので、最後の行に強制マスがあってはいけない
+            if forced_below(full, up, cur) == Some(0) && min.is_none_or(|(m, _)| c < m) {
+                min = Some((c, key(up, cur)));
             }
-        }
-        board
-    });
+        },
+    );
     Outcome {
-        board,
+        min,
         transitions,
         max_states,
     }
 }
 
-/// 予算を下界から 1 つずつ上げ、最初に解が見つかった予算で最小解を返す。
-/// on_budget は各予算の判定結果ごとに呼ばれる
-pub fn solve_by_budget(n: usize, mut on_budget: impl FnMut(usize, &Outcome)) -> Board {
-    let lb = lower_bounds(n, STRIP_HEIGHT);
-    for budget in lb[n].. {
-        let outcome = search(n, budget, &lb);
+/// 行 x, y の下に行 z が正しくつながるか（行 y の条件が満たされるか）
+fn connects(full: u64, x: u64, y: u64, z: u64) -> bool {
+    let Some(forced) = forced_below(full, x, y) else {
+        return false;
+    };
+    // 行 z は forced を含み、残りは行 y の塗ったマスの真下だけ
+    z & forced == forced && z & !forced & !y == 0
+}
+
+/// 両端の行が決まっているとき、間の行を DP で探し、
+/// 遠い側の端に接する 2 行（未定が 1 行なら 1 行）を確定させる。
+/// near: 出発側の端から順に並べた確定済みの行（1 行以上）。
+/// far: 反対側の端から順に並べた確定済みの行。
+/// 盤は上下反転しても同じ問題なので、向きはどちらでもよい。
+/// 戻り値は (far の続きに足す行, 遷移の数, 状態数の最大)
+fn pin_far_end(
+    n: usize,
+    total: usize,
+    near: &[u64],
+    far: &[u64],
+    bounds: &Bounds,
+) -> (Vec<u64>, u64, usize) {
+    let full = (1u64 << n) - 1;
+    let (t, s) = (near.len(), far.len());
+    assert!(t >= 1 && t + s < n);
+    // 未定の行は t..=b
+    let b = n - 1 - s;
+    let near_cost: usize = near.iter().map(|x| x.count_ones() as usize).sum();
+    let far_cost: usize = far.iter().map(|x| x.count_ones() as usize).sum();
+    let start_up = if t >= 2 { near[t - 2] } else { 0 };
+    let (lb, free) = (&bounds.anchored, &bounds.free);
+    let mut found = None;
+    let (transitions, max_states) = forward(
+        n,
+        [(start_up, near[t - 1], near_cost)],
+        t - 1,
+        b,
+        |k, c| {
+            if k < b {
+                // 行 k+1..=b は未定、far 側は確定
+                c + lb[n - 1 - k].max(free[b - k] + far_cost) <= total
+            } else {
+                c + far_cost <= total
+            }
+        },
+        |x, y, c| {
+            if found.is_some() || c + far_cost != total {
+                return;
+            }
+            let ok = match s {
+                0 => forced_below(full, x, y) == Some(0),
+                1 => connects(full, x, y, far[0]) && forced_below(full, y, far[0]) == Some(0),
+                _ => connects(full, x, y, far[s - 1]) && connects(full, y, far[s - 1], far[s - 2]),
+            };
+            if ok {
+                found = Some((x, y));
+            }
+        },
+    );
+    let (x, y) = found.expect("最小解に含まれる端なら、つながる行が見つかる");
+    // 行 b は y、行 b-1 は x。x が near 側の確定済みの行なら y だけ
+    let rows = if b > t { vec![y, x] } else { vec![y] };
+    (rows, transitions, max_states)
+}
+
+/// 塗り数 total の解の最後の状態 last から、盤面を復元する。
+/// 表を 2 枚しか持たないので、1 回の DP で確定できるのは遠い側の端の 2 行だけ。
+/// 確定した端から出発し、反対側の端の 2 行を確定させる DP を、向きを交互に変えて繰り返す。
+/// 出発点が 1 状態に固定されるので、どの回も最初の探索より小さく収まる。
+/// on_pass(確定した行数, 遷移の数, 状態数の最大) は 1 回ごとに呼ばれる
+pub fn reconstruct(
+    n: usize,
+    total: usize,
+    last: u64,
+    bounds: &Bounds,
+    mut on_pass: impl FnMut(usize, u64, usize),
+) -> Board {
+    // top: 上端から順に並べた確定済みの行、bottom: 下端から順に並べた確定済みの行
+    let mut top: Vec<u64> = Vec::new();
+    let (up, cur) = split(last);
+    let mut bottom = vec![cur];
+    if n >= 2 {
+        bottom.push(up);
+    }
+    let mut from_bottom = true;
+    while top.len() + bottom.len() < n {
+        if from_bottom {
+            let (rows, transitions, max_states) = pin_far_end(n, total, &bottom, &top, bounds);
+            top.extend(rows);
+            on_pass(top.len() + bottom.len(), transitions, max_states);
+        } else {
+            let (rows, transitions, max_states) = pin_far_end(n, total, &top, &bottom, bounds);
+            bottom.extend(rows);
+            on_pass(top.len() + bottom.len(), transitions, max_states);
+        }
+        from_bottom = !from_bottom;
+    }
+    let rows: Vec<u64> = top.into_iter().chain(bottom.into_iter().rev()).collect();
+    let mut board = Board::new(n);
+    for (r, &row) in rows.iter().enumerate() {
+        for c in 0..n {
+            board.painted[r * n + c] = row >> c & 1 == 1;
+        }
+    }
+    board
+}
+
+/// 予算を下界から 1 つずつ上げ、最初に解ありとなった予算で解を 1 つ返す。
+/// on_budget は各予算の判定結果ごとに、on_pass は復元の DP 1 回ごとに呼ばれる
+pub fn solve_by_budget(
+    n: usize,
+    mut on_budget: impl FnMut(usize, &Outcome),
+    on_pass: impl FnMut(usize, u64, usize),
+) -> Board {
+    let bounds = lower_bounds(n, STRIP_HEIGHT);
+    for budget in bounds.anchored[n].. {
+        let outcome = search(n, budget, &bounds);
         on_budget(budget, &outcome);
-        if let Some(board) = outcome.board {
-            return board;
+        if let Some((total, last)) = outcome.min {
+            return reconstruct(n, total, last, &bounds, on_pass);
         }
     }
     unreachable!()
 }
 
 pub fn solve(n: usize) -> Board {
-    solve_by_budget(n, |_, _| {})
+    solve_by_budget(n, |_, _| {}, |_, _, _| {})
 }
 
 #[cfg(test)]
@@ -298,7 +418,7 @@ mod tests {
     fn lower_bound_is_below_known() {
         for n in 1..=10 {
             let lb = lower_bounds(n, STRIP_HEIGHT);
-            assert!(lb[n] <= known(n).unwrap(), "n = {n}");
+            assert!(lb.anchored[n] <= known(n).unwrap(), "n = {n}");
         }
     }
 
@@ -323,7 +443,7 @@ mod tests {
         for n in 1..=10 {
             let lb = lower_bounds(n, STRIP_HEIGHT);
             let a = known(n).unwrap();
-            assert!(search(n, a - 1, &lb).board.is_none(), "n = {n}");
+            assert!(search(n, a - 1, &lb).min.is_none(), "n = {n}");
         }
     }
 }
