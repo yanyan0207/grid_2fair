@@ -7,6 +7,7 @@
 pub mod board;
 pub mod brute;
 pub mod dfs;
+pub mod dp;
 
 pub use board::Board;
 

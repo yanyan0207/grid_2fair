@@ -1,7 +1,7 @@
 use std::time::Instant;
 
 use clap::{Parser, ValueEnum};
-use grid_2fair::{brute, dfs, known};
+use grid_2fair::{brute, dfs, dp, known};
 
 /// 使う探索アルゴリズム
 #[derive(Clone, Copy, Debug, ValueEnum)]
@@ -10,6 +10,8 @@ enum Algo {
     Brute,
     /// 行単位の深さ優先探索（dfs.rs）
     Dfs,
+    /// 予算付きの行単位 DP。帯の下界で枝刈りする（dp.rs）
+    Dp,
 }
 
 /// OEIS A344719: 塗っていない全マスがちょうど 2 個の塗ったマスに隣接するよう塗る最小個数
@@ -22,7 +24,7 @@ struct Args {
     #[arg(long)]
     to: Option<usize>,
     /// 探索アルゴリズム
-    #[arg(long, value_enum, default_value_t = Algo::Dfs)]
+    #[arg(long, value_enum, default_value_t = Algo::Dp)]
     algo: Algo,
 }
 
@@ -34,8 +36,23 @@ fn run(n: usize, algo: Algo) {
             let (board, nodes) = dfs::solve_with_nodes(n);
             (board, Some(nodes))
         }
+        Algo::Dp => {
+            let board = dp::solve_by_budget(n, |budget, o| {
+                let result = if o.board.is_some() {
+                    "解あり"
+                } else {
+                    "解なし"
+                };
+                println!(
+                    "budget {budget}: {result} (transitions: {}, max states: {})",
+                    o.transitions, o.max_states
+                );
+            });
+            (board, None)
+        }
     };
     let elapsed = start.elapsed();
+    assert!(board.is_valid(), "解が条件を満たしていない");
     print!("{board}");
     let count = board.count();
     match known(n) {

@@ -62,7 +62,7 @@ impl Dfs {
         self.nodes += 1;
         let up = if r == 0 { 0 } else { self.rows[r - 1] };
         let cur = self.rows[r];
-        let Some(forced) = self.forced_below(up, cur) else {
+        let Some(forced) = forced_below(self.full, up, cur) else {
             return;
         };
 
@@ -96,22 +96,23 @@ impl Dfs {
             sub = (sub - 1) & cur;
         }
     }
+}
 
-    /// 行 cur の塗っていないマスが条件を満たすために、
-    /// 真下に塗りが必要なマスのビット列。満たせないマスがあれば None
-    fn forced_below(&self, up: u64, cur: u64) -> Option<u64> {
-        let a = up;
-        let b = (cur << 1) & self.full;
-        let c = cur >> 1;
-        let all3 = a & b & c;
-        let ones = (a ^ b ^ c) & !all3;
-        let twos = ((a & b) | (b & c) | (a & c)) & !all3;
-        let unpainted = !cur & self.full;
-        if unpainted & !(ones | twos) != 0 {
-            return None;
-        }
-        Some(unpainted & ones)
+/// 行 cur の塗っていないマスが条件を満たすために、
+/// 真下に塗りが必要なマスのビット列。満たせないマスがあれば None。
+/// full は盤面幅ぶんのビットが立ったマスク
+pub fn forced_below(full: u64, up: u64, cur: u64) -> Option<u64> {
+    let a = up;
+    let b = (cur << 1) & full;
+    let c = cur >> 1;
+    let all3 = a & b & c;
+    let ones = (a ^ b ^ c) & !all3;
+    let twos = ((a & b) | (b & c) | (a & c)) & !all3;
+    let unpainted = !cur & full;
+    if unpainted & !(ones | twos) != 0 {
+        return None;
     }
+    Some(unpainted & ones)
 }
 
 /// 列を 1 本おきに全部塗る自明な解の個数。
