@@ -1,0 +1,7 @@
+# 改行コードは常に LF に正規化する(CRLF 禁止)
+* text=auto eol=lf
+
+# バイナリ
+*.png binary
+*.jpg binary
+*.pdf binary
