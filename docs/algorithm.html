@@ -1,0 +1,591 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>A344719 の DFS 探索</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+JP:wght@400;500;700&family=JetBrains+Mono:wght@400;600&display=swap">
+<style>
+:root {
+  --bg: #F2F4F6;
+  --surface: #FFFFFF;
+  --ink: #18212B;
+  --muted: #5B6672;
+  --rule: #D5DBE1;
+  --grid: #C9D1D9;
+  --accent: #0F6B74;
+  --accent-soft: #D3EAEC;
+  --force: #B7791F;
+  --force-soft: #F8E7C4;
+  --forbid: #C2453B;
+  --forbid-soft: #F6DEDB;
+  --row-band: #FFF3C9;
+  --ok: #2D7D3A;
+  --code-bg: #E8ECF0;
+  --mono: "JetBrains Mono", ui-monospace, "Cascadia Mono", Consolas, monospace;
+  --sans: "IBM Plex Sans JP", "Hiragino Sans", "Yu Gothic UI", "Meiryo", system-ui, sans-serif;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    color-scheme: dark;
+    --bg: #11161C; --surface: #1A2129; --ink: #E3E8EE; --muted: #9AA6B2;
+    --rule: #2C3640; --grid: #36424E; --accent: #4CC2CD; --accent-soft: #173A3F;
+    --force: #E0A84A; --force-soft: #3D311A; --forbid: #F07A6E; --forbid-soft: #3A2124;
+    --row-band: #3A3418; --ok: #6CCB7A; --code-bg: #232C36;
+  }
+}
+:root[data-theme="dark"] {
+  color-scheme: dark;
+  --bg: #11161C; --surface: #1A2129; --ink: #E3E8EE; --muted: #9AA6B2;
+  --rule: #2C3640; --grid: #36424E; --accent: #4CC2CD; --accent-soft: #173A3F;
+  --force: #E0A84A; --force-soft: #3D311A; --forbid: #F07A6E; --forbid-soft: #3A2124;
+  --row-band: #3A3418; --ok: #6CCB7A; --code-bg: #232C36;
+}
+
+body {
+  background: var(--bg);
+  color: var(--ink);
+  font-family: var(--sans);
+  font-size: 16px;
+  line-height: 1.8;
+  padding-inline: 16px;
+  padding-block: 32px 64px;
+  margin: 0;
+}
+main { max-width: 860px; margin-inline: auto; display: grid; gap: 56px; }
+h1, h2, h3 { text-wrap: balance; line-height: 1.35; margin: 0; }
+h1 { font-size: clamp(1.7rem, 4vw, 2.3rem); font-weight: 700; }
+h2 { font-size: 1.4rem; font-weight: 700; }
+h3 { font-size: 1.05rem; font-weight: 700; }
+p { margin: 0; max-width: 40em; }
+code, .mono { font-family: var(--mono); font-size: .9em; }
+code { background: var(--code-bg); padding: 1px 5px; border-radius: 4px; }
+pre { margin: 0; background: var(--code-bg); border-radius: 8px; padding: 14px 16px; overflow-x: auto; font-size: .88rem; line-height: 1.6; }
+pre code { background: none; padding: 0; }
+.eyebrow { font-family: var(--mono); font-size: .78rem; letter-spacing: .08em; text-transform: uppercase; color: var(--accent); }
+section { display: grid; gap: 16px; }
+.lead { font-size: 1.08rem; color: var(--muted); }
+
+header { display: grid; gap: 12px; }
+.hero { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 300px); gap: 32px; align-items: center; }
+figure { margin: 0; display: grid; gap: 8px; }
+figcaption { font-size: .85rem; color: var(--muted); }
+@media (max-width: 680px) { .hero { grid-template-columns: 1fr; } }
+
+.cols2 { display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 24px; align-items: start; }
+.note { border-left: 3px solid var(--accent); padding: 4px 0 4px 14px; color: var(--muted); font-size: .95rem; }
+
+svg text { font-family: var(--mono); fill: var(--muted); }
+
+.cases { display: grid; grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)); gap: 16px; }
+.case { background: var(--surface); border: 1px solid var(--rule); border-radius: 8px; padding: 14px; display: grid; gap: 6px; justify-items: center; text-align: center; }
+.case svg { width: 120px; height: auto; }
+.case .k { font-family: var(--mono); font-size: .85rem; }
+.case .v { font-size: .9rem; color: var(--muted); }
+.tag { font-family: var(--mono); font-size: .75rem; font-weight: 600; }
+.tag.no { color: var(--forbid); }
+.tag.yes { color: var(--ok); }
+.tag.force { color: var(--force); }
+
+/* demo */
+.demo { background: var(--surface); border: 1px solid var(--rule); border-radius: 10px; padding: 20px; display: grid; gap: 16px; }
+.demo-body { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 260px); gap: 24px; align-items: start; }
+@media (max-width: 680px) { .demo-body { grid-template-columns: 1fr; } }
+.controls { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+button, select { font-family: var(--sans); font-size: .9rem; color: var(--ink); background: var(--bg); border: 1px solid var(--rule); border-radius: 6px; padding: 6px 12px; cursor: pointer; }
+button:hover, select:hover { border-color: var(--accent); }
+button.primary { background: var(--accent); border-color: var(--accent); color: var(--surface); font-weight: 500; }
+button:focus-visible, select:focus-visible, input:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+label { font-size: .85rem; color: var(--muted); display: inline-flex; gap: 6px; align-items: center; }
+input[type=range] { accent-color: var(--accent); width: 110px; }
+.stats { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+.stat { display: grid; gap: 0; }
+.stat .k { font-size: .75rem; color: var(--muted); letter-spacing: .04em; }
+.stat .v { font-family: var(--mono); font-size: 1.35rem; font-variant-numeric: tabular-nums; }
+.msg { font-size: .95rem; min-height: 4.8em; padding: 10px 12px; border-radius: 6px; background: var(--bg); }
+.msg.best { background: var(--accent-soft); font-weight: 500; }
+.msg.cut { background: var(--forbid-soft); }
+.legend { display: grid; gap: 6px; font-size: .82rem; color: var(--muted); }
+.legend span { display: inline-flex; gap: 8px; align-items: center; }
+.sw { width: 14px; height: 14px; border-radius: 3px; display: inline-block; border: 1px solid var(--grid); flex: none; }
+.side { display: grid; gap: 16px; }
+.best-box { display: grid; gap: 4px; }
+.best-box .k { font-size: .75rem; color: var(--muted); }
+#best-svg { width: 120px; height: auto; }
+
+.table-wrap { overflow-x: auto; }
+table { border-collapse: collapse; width: 100%; font-size: .92rem; }
+th, td { text-align: left; padding: 8px 12px; border-bottom: 1px solid var(--rule); }
+th { font-size: .78rem; color: var(--muted); font-weight: 500; letter-spacing: .04em; }
+td.num { font-family: var(--mono); font-variant-numeric: tabular-nums; text-align: right; }
+th.num { text-align: right; }
+ul.plain, ol.plain { margin: 0; padding-left: 1.4em; display: grid; gap: 6px; }
+@media (prefers-reduced-motion: reduce) { * { transition: none !important; } }
+</style>
+</head>
+<body>
+
+<main>
+  <header>
+    <div class="eyebrow">grid_2fair / OEIS A344719 / Rust</div>
+    <div class="hero">
+      <div style="display:grid;gap:12px">
+        <h1>行ごとの DFS で最小の塗り方を探す</h1>
+        <p class="lead">n×n の格子のマスをいくつか塗り、塗っていないマスがどれも上下左右でちょうど 2 個の塗ったマスに接するようにします。塗るマスの最小個数が a(n) です。<code>src/dfs.rs</code> がこれをどう探しているかを、図と動くデモで説明します。</p>
+      </div>
+      <figure>
+        <svg id="hero-svg" role="img" aria-label="n=8 の最小解"></svg>
+        <figcaption>n = 8 の最小解（28 個）。白いマスの数字は、上下左右にある塗ったマスの数です。全部 2 になっています。</figcaption>
+      </figure>
+    </div>
+  </header>
+
+  <section>
+    <div class="eyebrow">考え方 1</div>
+    <h2>1 行をビット列で表し、上から順に決める</h2>
+    <p>各行を <code>u64</code> の整数で表します。列 c を塗ったら c ビット目を 1 にします。上の行から 1 行ずつ「この行のどのマスを塗るか」を決めていく深さ優先探索です。</p>
+    <p>あるマスの条件（塗っていないなら塗った隣がちょうど 2 個）が判定できるのは、上・左・右・下の 4 マスが全部決まったときです。行 r のマスなら、行 r+1 を決めた時点で判定できます。</p>
+  </section>
+
+  <section>
+    <div class="eyebrow">考え方 2</div>
+    <h2>2 行決まると、下の行の大半が強制される</h2>
+    <p>行 r とその上の行 r−1 が決まったとします。行 r の塗っていないマスについて、上・左・右にある塗ったマスの数を s とすると、真下に必要な塗りの数は 2 − s です。下は 1 マスしかないので、これは 0 か 1 でなければなりません。</p>
+    <div class="cases" id="cases"></div>
+    <p class="note">つまり行 r の<strong>塗っていない</strong>マスの真下は、塗るかどうかが 1 通りに決まります。行 r の<strong>塗った</strong>マスには条件がないので、その真下だけが自由に選べます。</p>
+  </section>
+
+  <section>
+    <div class="eyebrow">考え方 3</div>
+    <h2>自由なのは「塗ったマスの真下」だけ</h2>
+    <div class="cols2">
+      <div style="display:grid;gap:12px">
+        <p>右の図では行 r（黄色の帯）の塗っていないマスから、行 r+1 の強制マス（橙）が決まっています。点線枠は行 r の塗ったマスの真下で、ここだけは塗っても塗らなくても構いません。</p>
+        <p>そこで次の行の候補は「強制マス ∪ 自由マスの部分集合」になります。自由マスが k 個なら候補は 2<sup>k</sup> 通りで、行全体の 2<sup>n</sup> 通りよりずっと少なくなります。</p>
+        <p>部分集合はビット演算 <code>sub = (sub - 1) &amp; cur</code> で全部列挙します。</p>
+      </div>
+      <figure>
+        <svg id="free-svg" role="img" aria-label="強制マスと自由マスの図"></svg>
+        <figcaption>橙の塗りは強制、点線枠は自由。行 r の各マスの下の数字は s（上・左・右の塗りの数）です。</figcaption>
+      </figure>
+    </div>
+  </section>
+
+  <section>
+    <div class="eyebrow">考え方 4</div>
+    <h2>s の判定は 1 行まとめてビット演算で</h2>
+    <p>上の行を <code>a</code>、左隣を並べた <code>b = cur &lt;&lt; 1</code>、右隣を並べた <code>c = cur &gt;&gt; 1</code> とすると、各ビットで a, b, c のうち何個が 1 かを一度に計算できます。s が 1 のビットは「下を塗る」、2 のビットは「下を塗らない」、0 や 3 のビットがあれば行き止まりです。</p>
+<pre><code>fn forced_below(&amp;self, up: u64, cur: u64) -&gt; Option&lt;u64&gt; {
+    let a = up;
+    let b = (cur &lt;&lt; 1) &amp; self.full;
+    let c = cur &gt;&gt; 1;
+    let all3 = a &amp; b &amp; c;
+    let ones = (a ^ b ^ c) &amp; !all3;                       // s = 1
+    let twos = ((a &amp; b) | (b &amp; c) | (a &amp; c)) &amp; !all3;  // s = 2
+    let unpainted = !cur &amp; self.full;
+    if unpainted &amp; !(ones | twos) != 0 {
+        return None;                                     // s = 0 か 3 がある
+    }
+    Some(unpainted &amp; ones)                               // 下に塗りが必要なマス
+}</code></pre>
+  </section>
+
+  <section>
+    <div class="eyebrow">考え方 5</div>
+    <h2>最後の行と、暫定最良による枝刈り</h2>
+    <ul class="plain">
+      <li><strong>最後の行</strong>: 盤の外は塗れないので、最後の行の強制マスが 1 つでもあれば失敗です。強制マスが空なら解が 1 つ完成します。</li>
+      <li><strong>分枝限定</strong>: これまでに見つけた最良の個数を覚えておき、「今までの塗り数 + 次の行の強制マス数」がそれ以上なら、その先は調べません。最初の上限は、列を 1 本おきに全部塗る自明な解の個数 n × (⌊n/2⌋ + 1) です（n が偶数なら最後の列も塗る）。塗っていない列のマスは左右が塗られ、上下は塗られていないので、必ず条件を満たします。</li>
+      <li><strong>1 行目</strong>: 1 行目の上は盤の外なので、上の行を 0 として扱います。1 行目は 2<sup>n</sup> 通りすべてを試します。</li>
+    </ul>
+  </section>
+
+  <section>
+    <div class="eyebrow">デモ</div>
+    <h2>探索を 1 手ずつ見る</h2>
+    <p><code>src/dfs.rs</code> と同じ手順を、このページの中で動かしています。</p>
+    <div class="demo">
+      <div class="controls">
+        <label for="sel-n">盤面 n
+          <select id="sel-n">
+            <option value="3">3</option>
+            <option value="4" selected>4</option>
+            <option value="5">5</option>
+            <option value="6">6</option>
+          </select>
+        </label>
+        <button id="btn-step" class="primary">1 手進む</button>
+        <button id="btn-play">自動再生</button>
+        <button id="btn-next">次の改善まで</button>
+        <button id="btn-reset">最初から</button>
+        <label for="speed">速さ <input id="speed" type="range" min="0" max="4" value="1"></label>
+      </div>
+      <div class="demo-body">
+        <svg id="demo-svg" role="img" aria-label="探索の様子"></svg>
+        <div class="side">
+          <div class="msg" id="msg" aria-live="polite">「1 手進む」を押すと探索が始まります。</div>
+          <div class="stats">
+            <div class="stat"><span class="k">探索ノード数</span><span class="v" id="st-nodes">0</span></div>
+            <div class="stat"><span class="k">手数</span><span class="v" id="st-steps">0</span><span class="k" id="st-total"></span></div>
+            <div class="stat"><span class="k">いまの塗り数</span><span class="v" id="st-painted">0</span></div>
+            <div class="stat"><span class="k">暫定最良</span><span class="v" id="st-best">–</span></div>
+          </div>
+          <div class="best-box">
+            <span class="k">暫定最良の盤面</span>
+            <svg id="best-svg" role="img" aria-label="暫定最良の盤面"></svg>
+          </div>
+          <div class="legend">
+            <span><i class="sw" style="background:var(--accent);border-color:var(--accent)"></i>塗ったマス</span>
+            <span><i class="sw" style="background:var(--force-soft);border-color:var(--force)"></i>次の行で強制される塗り</span>
+            <span><i class="sw" style="border:2px dashed var(--accent)"></i>次の行で自由に選べるマス</span>
+            <span><i class="sw" style="background:var(--forbid-soft)"></i>条件を満たせないマス（行き止まり）</span>
+            <span><i class="sw" style="background:var(--row-band)"></i>いま判定している行</span>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section>
+    <div class="eyebrow">実行結果</div>
+    <h2>OEIS の値との比較</h2>
+    <p>リリースビルド（<code>cargo run --release -- 3 --to 9</code>）での計測値です。探索ノード数はデモの「探索ノード数」と同じ数え方（<code>search</code> を呼んだ回数）です。</p>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>n</th><th class="num">結果</th><th class="num">OEIS</th><th class="num">探索ノード数</th><th class="num">時間</th></tr></thead>
+        <tbody id="results"></tbody>
+      </table>
+    </div>
+    <p>n が 1 増えるごとにノード数も時間も約 50 倍になっています。n = 10 は 2 分以内に終わりませんでした。</p>
+  </section>
+
+  <section>
+    <div class="eyebrow">コード</div>
+    <h2>ファイルと役割</h2>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>ファイル</th><th>役割</th></tr></thead>
+        <tbody>
+          <tr><td><code>src/dfs.rs</code></td><td>この DFS。<code>search</code> が行ごとの再帰、<code>forced_below</code> が強制マスの計算</td></tr>
+          <tr><td><code>src/brute.rs</code></td><td>全 2<sup>n²</sup> 通りを調べる総当たり。DFS の答え合わせ用（n ≤ 5 程度）</td></tr>
+          <tr><td><code>src/board.rs</code></td><td>盤面 <code>Board</code> と、条件を満たすか確かめる <code>is_valid</code></td></tr>
+          <tr><td><code>src/lib.rs</code></td><td>OEIS の既知の値 a(1)〜a(15)</td></tr>
+          <tr><td><code>src/main.rs</code></td><td>コマンドライン（<code>n</code>、<code>--to</code>、<code>--algo dfs|brute</code>）。DFS では探索ノード数も表示する</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <h3>まだやっていないこと</h3>
+    <ol class="plain">
+      <li><strong>メモ化</strong>: 残りの最小値は「何行目か・直前 2 行」だけで決まる。記録すれば同じ部分問題を繰り返さない（状態数 4<sup>n</sup>）</li>
+      <li><strong>下界による枝刈り</strong>: 残りの行に最低何個塗る必要があるかを見積もる。上限を n² から自明な解に下げてもノード数は 0.1% も減らなかったので、効くのは下界の側</li>
+      <li><strong>左右対称の除去</strong>: 左右反転で重なる配置の片方だけ調べる</li>
+    </ol>
+  </section>
+</main>
+
+<script>
+(function () {
+  const CELL = 40, PAD = 26;
+  const el = id => document.getElementById(id);
+  const cx = c => PAD + c * CELL + CELL / 2;
+  const cy = r => PAD + r * CELL + CELL / 2;
+  const bit = (m, c) => (m >> c) & 1;
+  const popcount = m => { let k = 0; while (m) { m &= m - 1; k++; } return k; };
+
+  function frame(svg, rows, cols, labels, maxW) {
+    const w = PAD + cols * CELL + 4, h = PAD + rows * CELL + 4;
+    svg.setAttribute("viewBox", `0 0 ${w} ${h}`);
+    svg.style.width = "100%";
+    svg.style.maxWidth = (maxW || cols * 52 + 40) + "px";
+    svg.style.height = "auto";
+    let s = `<rect x="${PAD}" y="${PAD}" width="${cols * CELL}" height="${rows * CELL}" fill="var(--surface)"/>`;
+    if (labels) {
+      for (let i = 0; i < cols; i++) s += `<text x="${cx(i)}" y="${PAD - 9}" text-anchor="middle" font-size="12">${i}</text>`;
+      for (let i = 0; i < rows; i++) s += `<text x="${PAD - 9}" y="${cy(i) + 4}" text-anchor="end" font-size="12">${i}</text>`;
+    }
+    return s;
+  }
+  const rect = (r, c, fill, extra) =>
+    `<rect x="${PAD + c * CELL}" y="${PAD + r * CELL}" width="${CELL}" height="${CELL}" fill="${fill}" ${extra || ""}/>`;
+  function gridLines(rows, cols) {
+    let s = "";
+    for (let i = 0; i <= rows; i++) s += `<line x1="${PAD}" y1="${PAD + i * CELL}" x2="${PAD + cols * CELL}" y2="${PAD + i * CELL}" stroke="var(--grid)"/>`;
+    for (let i = 0; i <= cols; i++) s += `<line x1="${PAD + i * CELL}" y1="${PAD}" x2="${PAD + i * CELL}" y2="${PAD + rows * CELL}" stroke="var(--grid)"/>`;
+    return s;
+  }
+  const painted = (r, c) => rect(r, c, "var(--accent)");
+  const dashed = (r, c) =>
+    `<rect x="${PAD + c * CELL + 4}" y="${PAD + r * CELL + 4}" width="${CELL - 8}" height="${CELL - 8}" fill="none" stroke="var(--accent)" stroke-width="2" stroke-dasharray="4 3" rx="3"/>`;
+  const forcedCell = (r, c) =>
+    rect(r, c, "var(--force-soft)") + `<rect x="${PAD + c * CELL + 4}" y="${PAD + r * CELL + 4}" width="${CELL - 8}" height="${CELL - 8}" fill="var(--force)" rx="3"/>`;
+  const label = (r, c, t, color) =>
+    `<text x="${cx(c)}" y="${cy(r) + 5}" text-anchor="middle" font-size="14" font-weight="600" style="fill:${color || "var(--muted)"}">${t}</text>`;
+
+  /* ---- hero: n = 8 の最小解 ---- */
+  (function () {
+    const rows = ["#.#.#.#.", "..#.#..#", "###..#..", "...#..##", "##..#..#", "..#..#..", "#..#..##", ".#.##.#."];
+    const n = 8, svg = el("hero-svg");
+    const g = (r, c) => r >= 0 && r < n && c >= 0 && c < n && rows[r][c] === "#";
+    let s = frame(svg, n, n, false);
+    for (let r = 0; r < n; r++) for (let c = 0; c < n; c++) {
+      if (g(r, c)) s += painted(r, c);
+    }
+    s += gridLines(n, n);
+    for (let r = 0; r < n; r++) for (let c = 0; c < n; c++) {
+      if (!g(r, c)) s += label(r, c, g(r - 1, c) + g(r + 1, c) + g(r, c - 1) + g(r, c + 1));
+    }
+    svg.innerHTML = s;
+  })();
+
+  /* ---- 考え方 2: s = 0..3 の 4 ケース ---- */
+  (function () {
+    const CASES = [
+      { s: 0, up: 0, left: 0, right: 0, need: "2 個必要", res: "不可能", cls: "no" },
+      { s: 1, up: 1, left: 0, right: 0, need: "1 個必要", res: "下を塗る（強制）", cls: "force" },
+      { s: 2, up: 1, left: 1, right: 0, need: "0 個必要", res: "下は塗らない", cls: "yes" },
+      { s: 3, up: 1, left: 1, right: 1, need: "−1 個必要", res: "不可能", cls: "no" },
+    ];
+    el("cases").innerHTML = CASES.map(k => {
+      const P = 6, C = 34;
+      const sq = (r, c, fill, stroke) =>
+        `<rect x="${P + c * C}" y="${P + r * C}" width="${C}" height="${C}" fill="${fill}" stroke="${stroke || "var(--grid)"}"/>`;
+      let s = `<svg viewBox="0 0 ${2 * P + 3 * C} ${2 * P + 3 * C}" role="img" aria-label="s=${k.s} のケース">`;
+      s += sq(0, 1, k.up ? "var(--accent)" : "var(--surface)");
+      s += sq(1, 0, k.left ? "var(--accent)" : "var(--surface)");
+      s += sq(1, 2, k.right ? "var(--accent)" : "var(--surface)");
+      s += sq(1, 1, "var(--row-band)", "var(--ink)");
+      const downFill = k.cls === "force" ? "var(--force)" : k.cls === "no" ? "var(--forbid-soft)" : "var(--surface)";
+      s += sq(2, 1, downFill, k.cls === "force" ? "var(--force)" : "var(--grid)");
+      s += `<text x="${P + 1.5 * C}" y="${P + 2.5 * C + 5}" text-anchor="middle" font-size="16" font-weight="600" style="fill:var(--ink)">?</text>`;
+      s += `</svg>`;
+      return `<div class="case">${s}<span class="k">s = ${k.s}</span><span class="v">下に ${k.need}</span><span class="tag ${k.cls}">${k.res}</span></div>`;
+    }).join("");
+  })();
+
+  /* ---- 考え方 3: 強制マスと自由マスの図 ---- */
+  (function () {
+    const n = 6, svg = el("free-svg");
+    const up = 0b010010, cur = 0b100101;   // 列 c = bit c
+    const forced = forcedBelow(n, up, cur);
+    let s = frame(svg, 3, n, false);
+    s += `<rect x="${PAD}" y="${PAD + CELL}" width="${n * CELL}" height="${CELL}" fill="var(--row-band)"/>`;
+    for (let c = 0; c < n; c++) {
+      if (bit(up, c)) s += painted(0, c);
+      if (bit(cur, c)) s += painted(1, c);
+      if (forced !== null && bit(forced, c)) s += forcedCell(2, c);
+    }
+    s += gridLines(3, n);
+    for (let c = 0; c < n; c++) {
+      if (bit(cur, c)) s += dashed(2, c);
+      else {
+        const sv = bit(up, c) + (c > 0 ? bit(cur, c - 1) : 0) + (c < n - 1 ? bit(cur, c + 1) : 0);
+        s += label(1, c, sv, "var(--ink)");
+      }
+    }
+    s += `<text x="${PAD - 6}" y="${cy(0) + 4}" text-anchor="end" font-size="11">r−1</text>`;
+    s += `<text x="${PAD - 6}" y="${cy(1) + 4}" text-anchor="end" font-size="11">r</text>`;
+    s += `<text x="${PAD - 6}" y="${cy(2) + 4}" text-anchor="end" font-size="11">r+1</text>`;
+    svg.innerHTML = s;
+  })();
+
+  /* ---- dfs.rs と同じ計算 ---- */
+  function forcedBelow(n, up, cur) {
+    const full = (1 << n) - 1;
+    const a = up, b = (cur << 1) & full, c = cur >> 1;
+    const all3 = a & b & c;
+    const ones = (a ^ b ^ c) & ~all3;
+    const twos = ((a & b) | (b & c) | (a & c)) & ~all3;
+    const unpainted = ~cur & full;
+    if (unpainted & ~(ones | twos)) return null;
+    return unpainted & ones;
+  }
+  function deadCells(n, up, cur) {
+    const full = (1 << n) - 1;
+    const a = up, b = (cur << 1) & full, c = cur >> 1;
+    const all3 = a & b & c;
+    const ones = (a ^ b ^ c) & ~all3;
+    const twos = ((a & b) | (b & c) | (a & c)) & ~all3;
+    return ~cur & full & ~(ones | twos);
+  }
+
+  /* ---- デモ: dfs.rs と同じ探索を 1 手ずつ ---- */
+  function* searchSteps(n) {
+    const full = (1 << n) - 1;
+    const rows = [];
+    const ub = n * (Math.floor(n / 2) + 1);   // 列を 1 本おきに塗る自明な解
+    const st = { nodes: 0, best: ub + 1, bestRows: [] };
+    const S = (kind, msg, extra) => Object.assign({
+      kind, msg, rows: rows.slice(), nodes: st.nodes,
+      best: st.best <= ub ? st.best : null, bestRows: st.bestRows.slice(),
+      r: rows.length - 1, forced: 0, free: 0, dead: 0, painted: 0,
+    }, extra || {});
+
+    function* search(r, paintedCount) {
+      st.nodes++;
+      const up = r === 0 ? 0 : rows[r - 1];
+      const cur = rows[r];
+      const forced = forcedBelow(n, up, cur);
+      if (forced === null) {
+        yield S("cut", `行 ${r} に、上・左・右の塗りが 0 個か 3 個の白マスがある。下 1 マスでは 2 個にできないので行き止まり。`,
+          { r, dead: deadCells(n, up, cur), painted: paintedCount });
+        return;
+      }
+      if (r + 1 === n) {
+        if (forced !== 0) {
+          yield S("cut", `最後の行の白マスが、盤の外に塗りを必要としている。行き止まり。`,
+            { r, forced, painted: paintedCount, outside: true });
+        } else if (paintedCount < st.best) {
+          st.best = paintedCount;
+          st.bestRows = rows.slice();
+          yield S("best", `全マスが条件を満たした。塗り ${paintedCount} 個で暫定最良を更新。以後、${paintedCount} 個以上になる枝は切る。`,
+            { r, painted: paintedCount });
+        }
+        return;
+      }
+      const base = paintedCount + popcount(forced);
+      if (base >= st.best) {
+        yield S("cut", `行 ${r + 1} の強制マスだけで塗りが ${base} 個になり、暫定最良 ${st.best} 以上。この先は調べない。`,
+          { r, forced, painted: paintedCount });
+        return;
+      }
+      yield S("forced", `行 ${r} を判定。行 ${r + 1} は強制マス ${popcount(forced)} 個が決まり、自由マスは ${popcount(cur)} 個（${1 << popcount(cur)} 通り）。`,
+        { r, forced, free: cur, painted: paintedCount });
+      let sub = cur;
+      for (;;) {
+        const down = forced | sub;
+        const next = base + popcount(sub);
+        if (next < st.best) {
+          rows.push(down);
+          yield S("choose", `行 ${r + 1} を決めた（塗り ${popcount(down)} 個、合計 ${next} 個）。`, { r: r + 1, painted: next });
+          yield* search(r + 1, next);
+          rows.pop();
+        }
+        if (sub === 0) break;
+        sub = (sub - 1) & cur;
+      }
+    }
+
+    for (let first = 0; first <= full; first++) {
+      const count = popcount(first);
+      if (count >= st.best) continue;
+      rows.push(first);
+      yield S("choose", `1 行目を ${first.toString(2).padStart(n, "0").split("").reverse().join("")} にする（塗り ${count} 個）。`, { r: 0, painted: count });
+      yield* search(0, count);
+      rows.pop();
+    }
+    yield S("done", `探索が終わりました。a(${n}) = ${st.best} です。`, { r: -1 });
+  }
+
+  const svg = el("demo-svg"), bestSvg = el("best-svg"), elMsg = el("msg");
+  let n, gen, snap, steps, timer = null, finished;
+
+  function drawBoard(target, rowsArr, labels, maxW) {
+    let s = frame(target, n, n, labels, maxW);
+    rowsArr.forEach((m, r) => { for (let c = 0; c < n; c++) if (bit(m, c)) s += painted(r, c); });
+    return s;
+  }
+
+  function render() {
+    let s = frame(svg, n, n, true);
+    if (snap && snap.r >= 0 && snap.kind !== "done") {
+      s += `<rect x="${PAD}" y="${PAD + snap.r * CELL}" width="${n * CELL}" height="${CELL}" fill="var(--row-band)"/>`;
+    }
+    if (snap) {
+      snap.rows.forEach((m, r) => { for (let c = 0; c < n; c++) if (bit(m, c)) s += painted(r, c); });
+      for (let c = 0; c < n; c++) if (bit(snap.dead, c)) s += rect(snap.r, c, "var(--forbid-soft)");
+      if (snap.kind === "forced" || (snap.kind === "cut" && snap.forced && !snap.outside)) {
+        for (let c = 0; c < n; c++) if (bit(snap.forced, c)) s += forcedCell(snap.r + 1, c);
+      }
+    }
+    s += gridLines(n, n);
+    if (snap) {
+      for (let c = 0; c < n; c++) if (bit(snap.dead, c)) s += label(snap.r, c, "×", "var(--forbid)");
+      if (snap.kind === "forced") for (let c = 0; c < n; c++) if (bit(snap.free, c)) s += dashed(snap.r + 1, c);
+      if (snap.outside) {
+        for (let c = 0; c < n; c++) if (bit(snap.forced, c)) s += label(snap.r, c, "↓", "var(--forbid)");
+      }
+      if (snap.kind === "best") {
+        s += `<rect x="${PAD - 3}" y="${PAD - 3}" width="${n * CELL + 6}" height="${n * CELL + 6}" fill="none" stroke="var(--ok)" stroke-width="3" rx="3"/>`;
+      }
+    }
+    svg.innerHTML = s;
+
+    let b = drawBoard(bestSvg, snap ? snap.bestRows : [], false, 120);
+    b += gridLines(n, n);
+    bestSvg.innerHTML = b;
+
+    el("st-nodes").textContent = snap ? snap.nodes.toLocaleString() : "0";
+    el("st-steps").textContent = steps.toLocaleString();
+    el("st-total").textContent = `全 ${totalSteps(n).toLocaleString()} 手`;
+    el("st-painted").textContent = snap && snap.kind !== "done" ? snap.painted : "–";
+    el("st-best").textContent = snap && snap.best !== null ? snap.best : "–";
+    if (snap) {
+      elMsg.textContent = snap.msg;
+      elMsg.className = "msg" + (snap.kind === "best" || snap.kind === "done" ? " best" : snap.kind === "cut" ? " cut" : "");
+    }
+  }
+
+  function advance() {
+    if (finished) return null;
+    const r = gen.next();
+    if (r.done) { finished = true; stop(); return null; }
+    snap = r.value; steps++;
+    if (snap.kind === "done") { finished = true; stop(); }
+    return snap;
+  }
+  // n ごとの総手数。初回だけ探索を最後まで空回しして数える
+  const TOTAL = {};
+  function totalSteps(m) {
+    if (!(m in TOTAL)) { let k = 0; for (const _ of searchSteps(m)) k++; TOTAL[m] = k; }
+    return TOTAL[m];
+  }
+
+  function reset() {
+    stop();
+    n = +el("sel-n").value;
+    gen = searchSteps(n); snap = null; steps = 0; finished = false;
+    render();
+    elMsg.textContent = "「1 手進む」を押すと探索が始まります。";
+    elMsg.className = "msg";
+  }
+  const SPEEDS = [[800, 1], [300, 1], [90, 1], [30, 1], [16, 40]];
+  function play() {
+    stop();
+    const [ms, per] = SPEEDS[+el("speed").value];
+    timer = setInterval(() => {
+      for (let i = 0; i < per; i++) { const s = advance(); if (!s) break; if (s.kind === "best" && per > 1) break; }
+      render();
+    }, ms);
+    el("btn-play").textContent = "停止";
+  }
+  function stop() {
+    if (timer) clearInterval(timer);
+    timer = null;
+    el("btn-play").textContent = "自動再生";
+  }
+  el("btn-step").addEventListener("click", () => { stop(); advance(); render(); });
+  el("btn-play").addEventListener("click", () => { if (timer) stop(); else if (!finished) play(); });
+  el("btn-next").addEventListener("click", () => {
+    stop();
+    for (let i = 0; i < 5000000; i++) { const s = advance(); if (!s || s.kind === "best" || s.kind === "done") break; }
+    render();
+  });
+  el("btn-reset").addEventListener("click", reset);
+  el("sel-n").addEventListener("change", reset);
+  el("speed").addEventListener("input", () => { if (timer) play(); });
+  reset();
+
+  /* ---- 結果表 ---- */
+  const RES = [[3, 5, 5, 34, "5.2 µs"], [4, 8, 8, 258, "4.2 µs"], [5, 11, 11, 1969, "24 µs"],
+               [6, 17, 17, 54441, "0.49 ms"], [7, 21, 21, 630496, "5.8 ms"], [8, 28, 28, 31878503, "0.30 s"],
+               [9, 35, 35, 1730460358, "16.0 s"], [10, null, 42, null, "120 s 超"]];
+  el("results").innerHTML = RES.map(([n, got, oeis, nodes, t]) =>
+    `<tr><td class="mono">${n}</td><td class="num">${got ?? "–"}</td><td class="num">${oeis}</td>` +
+    `<td class="num">${nodes === null ? "–" : nodes.toLocaleString()}</td><td class="num">${t}</td></tr>`
+  ).join("");
+})();
+</script>
+</body>
+</html>

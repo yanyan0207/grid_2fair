@@ -1,21 +1,60 @@
-use clap::Parser;
-use grid_2fair::{brute, known};
+use std::time::Instant;
+
+use clap::{Parser, ValueEnum};
+use grid_2fair::{brute, dfs, known};
+
+/// 使う探索アルゴリズム
+#[derive(Clone, Copy, Debug, ValueEnum)]
+enum Algo {
+    /// 全パターンを調べる総当たり（brute.rs）
+    Brute,
+    /// 行単位の深さ優先探索（dfs.rs）
+    Dfs,
+}
 
 /// OEIS A344719: 塗っていない全マスがちょうど 2 個の塗ったマスに隣接するよう塗る最小個数
 #[derive(Parser, Debug)]
 #[command(version, about)]
 struct Args {
-    /// 盤面サイズ n
+    /// 盤面サイズ n。--to と併用すると開始サイズ
     n: usize,
+    /// 終了サイズ。n から to まで順に解く
+    #[arg(long)]
+    to: Option<usize>,
+    /// 探索アルゴリズム
+    #[arg(long, value_enum, default_value_t = Algo::Dfs)]
+    algo: Algo,
+}
+
+fn run(n: usize, algo: Algo) {
+    let start = Instant::now();
+    let (board, nodes) = match algo {
+        Algo::Brute => (brute::solve(n), None),
+        Algo::Dfs => {
+            let (board, nodes) = dfs::solve_with_nodes(n);
+            (board, Some(nodes))
+        }
+    };
+    let elapsed = start.elapsed();
+    print!("{board}");
+    let count = board.count();
+    match known(n) {
+        Some(k) => println!("n = {n}: {count} (OEIS: {k})"),
+        None => println!("n = {n}: {count}"),
+    }
+    if let Some(nodes) = nodes {
+        println!("nodes: {nodes}");
+    }
+    println!("time: {elapsed:.2?}");
 }
 
 fn main() {
     let args = Args::parse();
-    let board = brute::solve(args.n);
-    print!("{board}");
-    let count = board.count();
-    match known(args.n) {
-        Some(k) => println!("n = {}: {count} (OEIS: {k})", args.n),
-        None => println!("n = {}: {count}", args.n),
+    let to = args.to.unwrap_or(args.n);
+    for n in args.n..=to {
+        if n > args.n {
+            println!();
+        }
+        run(n, args.algo);
     }
 }
