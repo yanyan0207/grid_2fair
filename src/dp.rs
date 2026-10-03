@@ -10,7 +10,7 @@
 //! 予算を下界から 1 つずつ上げ、最初に解が見つかった予算が a(n)。
 //! それより小さい予算では「解なし」が示されたことになる。
 
-use std::collections::HashMap;
+use rustc_hash::FxHashMap as HashMap;
 
 use crate::Board;
 use crate::dfs::forced_below;
@@ -187,7 +187,7 @@ pub fn search(n: usize, budget: usize, lb: &[usize]) -> Outcome {
 
     // layers[k]: 行 k までの状態 → (最小塗り数, 1 つ前の状態の上の行)
     let mut layers: Vec<HashMap<u64, (u16, u32)>> = Vec::with_capacity(n);
-    let mut first = HashMap::new();
+    let mut first = HashMap::default();
     for row in 0..=full {
         let c = row.count_ones() as usize;
         if keep(0, c) {
@@ -199,7 +199,7 @@ pub fn search(n: usize, budget: usize, lb: &[usize]) -> Outcome {
     let mut transitions = 0u64;
     let mut best: Option<(u16, u64)> = None;
     for k in 0..n {
-        let mut next = HashMap::new();
+        let mut next = HashMap::default();
         for (&st, &(v, _)) in &layers[k] {
             let (up, cur) = (st >> 32, st & 0xFFFF_FFFF);
             let Some(forced) = forced_below(full, up, cur) else {
