@@ -2,7 +2,7 @@ use std::time::Instant;
 
 use clap::{CommandFactory, Parser, ValueEnum, error::ErrorKind};
 use grid_2fair::stripes_dfs::Phase;
-use grid_2fair::{brute, dfs, dp, known, stripes, stripes_dfs};
+use grid_2fair::{bound, brute, dfs, dp, known, stripes, stripes_dfs};
 
 /// Search algorithm
 #[derive(Clone, Copy, Debug, ValueEnum)]
@@ -56,8 +56,41 @@ struct Args {
     margin: usize,
 }
 
+/// 下界の表を出す。どれも bound::lower_bounds の値で、探索の枝刈りに使うのは anchored
+fn print_bounds(n: usize) {
+    let b = bound::lower_bounds(n, bound::STRIP_HEIGHT);
+    let join = |v: &[usize]| {
+        v.iter()
+            .map(usize::to_string)
+            .collect::<Vec<_>>()
+            .join(", ")
+    };
+    let h = b.free_strip.len() - 1;
+    println!("lower bounds (strips of height up to {h}):");
+    println!(
+        "  S_h, strip with free rows above and below,     h = 0..={h}: {}",
+        join(&b.free_strip)
+    );
+    println!(
+        "  B_h, strip touching the bottom edge,           h = 0..={h}: {}",
+        join(&b.bottom_strip)
+    );
+    println!(
+        "  free[m], m rows with free rows above and below, m = 0..={n}: {}",
+        join(&b.free)
+    );
+    println!(
+        "  anchored[m], m rows touching the bottom edge,   m = 0..={n}: {}",
+        join(&b.anchored)
+    );
+    println!("  whole board: anchored[{n}] = {}", b.anchored[n]);
+}
+
 /// n を解いて結果を表示し、a(n) を返す
 fn run(n: usize, algo: Algo, margin: usize) -> usize {
+    if !matches!(algo, Algo::Brute) {
+        print_bounds(n);
+    }
     let start = Instant::now();
     let (board, nodes) = match algo {
         Algo::Brute => (brute::solve(n), None),

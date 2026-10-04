@@ -38,6 +38,14 @@ impl Dfs {
         }
     }
 
+    /// 下界（bound::Bounds の anchored）を指定して作る
+    pub fn with_bounds(n: usize, bounds: crate::bound::Bounds) -> Self {
+        Self {
+            lb: bounds.anchored,
+            ..Self::new(n)
+        }
+    }
+
     /// 探索ノード数（rec を呼んだ回数、全予算の合計）
     pub fn nodes(&self) -> u64 {
         self.nodes

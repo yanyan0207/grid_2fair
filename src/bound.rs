@@ -1,11 +1,17 @@
 //! 残りの行に最低限必要な塗り数（下界）
 //!
 //! 1 行だけでは下界にならない（横縞なら空の行は上下の塗りで条件を満たす）ので、
-//! 高さ h の帯の最小塗り数（strip_min）を列方向の DP で求め、帯をつないで下界にする。
-//! dp.rs と dfs.rs の両方が、この下界で枝を切る。
+//! 高さ h の帯の最小塗り数を求め、帯をつないで下界にする。
+//! 帯の最小は strip_dfs::strip_min_dfs（列ごとの DFS）で求める。
+//! strip_min（列方向の DP）は同じ値を返すが、状態数が 4^h なので高い帯には使えず、答え合わせ用に残している。
+//! dfs.rs、dp.rs、stripes_dfs.rs が、この下界で枝を切る。
 
-/// 帯の高さの上限。状態数 4^h の列方向 DP を回すので 9 程度まで
-pub const STRIP_HEIGHT: usize = 9;
+use std::collections::HashMap;
+use std::sync::{Mutex, OnceLock};
+
+/// 帯の高さの上限。帯が高いほど帯どうしのつなぎ目が減って下界がきつくなる。
+/// n = 19〜21 では 9 から 12 に上げると証明の探索が最大 5 倍軽くなり、14 にしても変わらなかった
+pub const STRIP_HEIGHT: usize = 12;
 
 /// 高さ h・幅 n の帯で、帯の全マスが条件を満たすときの最小塗り数。
 /// top_free / bot_free が true なら帯の上 / 下の外側の行は好きに塗れるとみなし、
@@ -113,23 +119,47 @@ fn column_requirements(
 }
 
 /// 残りの行に最低限必要な塗り数（いずれも m = 0..=n で引く）
+#[derive(Clone, Debug)]
 pub struct Bounds {
     /// anchored[m]: 盤の下端に接する m 行に最低限必要な塗り数
     pub anchored: Vec<usize>,
     /// free[m]: 上下の外側を自由とみなした連続する m 行に最低限必要な塗り数
     pub free: Vec<usize>,
+    /// free_strip[h]: 上下の外側を自由とみなした高さ h の帯の最小（strip_min(.., true, true)、h = 0..=帯の高さの上限）
+    pub free_strip: Vec<usize>,
+    /// bottom_strip[h]: 盤の下端に接する高さ h の帯の最小（strip_min(.., true, false)）
+    pub bottom_strip: Vec<usize>,
 }
 
-/// 下界を作る。下端に接する高さ h の帯（strip_min(.., true, false)）と、
-/// 外側が両方自由な帯（strip_min(.., true, true)）に分けた和の最大
+/// 下界を作る。下端に接する高さ h の帯（上が自由、下が盤の外）と、
+/// 外側が両方自由な帯に分けた和の最大。帯の最小は strip_dfs::strip_min_dfs で求める。
+/// 同じ (n, max_h) の下界は一度だけ計算して覚えておく（帯が高いと 1 秒ほどかかるため）
 pub fn lower_bounds(n: usize, max_h: usize) -> Bounds {
+    static CACHE: OnceLock<Mutex<HashMap<(usize, usize), Bounds>>> = OnceLock::new();
+    let cache = CACHE.get_or_init(Mutex::default);
+    if let Some(b) = cache.lock().expect("cache lock").get(&(n, max_h)) {
+        return b.clone();
+    }
+    let b = lower_bounds_with(n, max_h, |h, bot_free| {
+        crate::strip_dfs::strip_min_dfs(n, h, bot_free).0
+    });
+    cache
+        .lock()
+        .expect("cache lock")
+        .insert((n, max_h), b.clone());
+    b
+}
+
+/// lower_bounds と同じだが、帯の最小を strip_min_of(h, bot_free) で求める
+/// （上の外側は自由。strip_dfs::strip_min_dfs を渡せば、DP で届かない高い帯も使える）
+pub fn lower_bounds_with(
+    n: usize,
+    max_h: usize,
+    strip_min_of: impl Fn(usize, bool) -> usize,
+) -> Bounds {
     let max_h = max_h.min(n);
     let strip = |h: usize, bot_free: bool| {
-        if h == 0 {
-            0
-        } else {
-            strip_min(n, h, true, bot_free)
-        }
+        if h == 0 { 0 } else { strip_min_of(h, bot_free) }
     };
     let free_strip: Vec<usize> = (0..=max_h).map(|h| strip(h, true)).collect();
     let bottom_strip: Vec<usize> = (0..=max_h).map(|h| strip(h, false)).collect();
@@ -147,7 +177,12 @@ pub fn lower_bounds(n: usize, max_h: usize) -> Bounds {
             .max()
             .unwrap();
     }
-    Bounds { anchored, free }
+    Bounds {
+        anchored,
+        free,
+        free_strip,
+        bottom_strip,
+    }
 }
 
 #[cfg(test)]

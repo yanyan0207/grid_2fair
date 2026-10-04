@@ -10,6 +10,7 @@ pub mod brute;
 pub mod dfs;
 pub mod dp;
 pub mod row;
+pub mod strip_dfs;
 pub mod stripes;
 pub mod stripes_dfs;
 
