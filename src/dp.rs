@@ -196,7 +196,8 @@ fn canonical(n: usize, up: u64, cur: u64) -> u64 {
 }
 
 /// 行 first の状態 start から行 last まで DP を進める。
-/// keep(k, c): 行 k までの塗り数が c の状態を残すか。
+/// keep(k, c, forced): 行 k までの塗り数が c で、行 k+1 の強制マスが forced 個の状態を残すか。
+/// 行 k の条件を満たせない状態（forced_below が None）は、keep を呼ばずに表に入れない。
 /// 行 last の各状態について on_last(上の行, 今の行, 塗り数) を呼ぶ。
 /// 次の行の表は今の行の表だけから作れるので、表は 2 枚だけ持つ。
 /// symmetric なら、左右反転で重なる状態を 1 つにまとめる（問題全体が左右対称なときだけ使える）。
@@ -207,7 +208,7 @@ fn forward(
     first: usize,
     last: usize,
     symmetric: bool,
-    keep: impl Fn(usize, usize) -> bool,
+    keep: impl Fn(usize, usize, usize) -> bool,
     mut on_last: impl FnMut(u64, u64, usize),
 ) -> (u64, usize) {
     assert!((1..=30).contains(&n), "n must be in 1..=30");
@@ -219,13 +220,25 @@ fn forward(
             key(up, cur)
         }
     };
+    // 行 k までの塗り数が c の状態 (up, cur) を表に入れる。
+    // 先に次の行の強制マスを求め、行 cur の条件を満たせない状態と、
+    // 強制マスを足すと予算を超える状態は入れない（1 行先読み）。
+    // 表に入れてから次の行で捨てていた状態が、表の 8〜9 割を占めていた
+    let admit = |table: &mut HashMap<u64, u16>, k: usize, up: u64, cur: u64, c: usize| {
+        let Some(forced) = forced_below(full, up, cur) else {
+            return;
+        };
+        if keep(k, c, forced.count_ones() as usize) {
+            let e = table.entry(make_key(up, cur)).or_insert(u16::MAX);
+            if (c as u16) < *e {
+                *e = c as u16;
+            }
+        }
+    };
     // 状態 → 行 k までの最小塗り数
     let mut table: HashMap<u64, u16> = HashMap::default();
     for (up, cur, c) in start {
-        if keep(first, c) {
-            let e = table.entry(make_key(up, cur)).or_insert(u16::MAX);
-            *e = (*e).min(c as u16);
-        }
+        admit(&mut table, first, up, cur, c);
     }
     let mut transitions = 0u64;
     let mut max_states = table.len();
@@ -233,20 +246,21 @@ fn forward(
         let mut next: HashMap<u64, u16> = HashMap::default();
         for (&st, &v) in &table {
             let (up, cur) = split(st);
+            // 表に入れた状態なので、強制マスは必ず求まる
             let Some(forced) = forced_below(full, up, cur) else {
                 continue;
             };
             let mut sub = cur;
             loop {
                 let down = forced | sub;
-                let w = v + down.count_ones() as u16;
                 transitions += 1;
-                if keep(k + 1, w as usize) {
-                    let e = next.entry(make_key(cur, down)).or_insert(u16::MAX);
-                    if w < *e {
-                        *e = w;
-                    }
-                }
+                admit(
+                    &mut next,
+                    k + 1,
+                    cur,
+                    down,
+                    v as usize + down.count_ones() as usize,
+                );
                 if sub == 0 {
                     break;
                 }
@@ -282,7 +296,16 @@ fn search_impl(n: usize, budget: usize, bounds: &Bounds, symmetric: bool) -> Out
         0,
         n - 1,
         symmetric,
-        |k, c| c + lb[n - 1 - k] <= budget,
+        |k, c, forced| {
+            // 残りは n-1-k 行。forced は行 k+1 の強制マス数で、その先の行は lb で見積もる。
+            // 行 k+1 が盤外（残り 0 行）なら、強制マスがあってはいけない
+            let rest = n - 1 - k;
+            if rest == 0 {
+                forced == 0 && c <= budget
+            } else {
+                c + lb[rest].max(forced + lb[rest - 1]) <= budget
+            }
+        },
         |up, cur, c| {
             // 盤外の行は塗れないので、最後の行に強制マスがあってはいけない
             if forced_below(full, up, cur) == Some(0) && min.is_none_or(|(m, _)| c < m) {
@@ -336,11 +359,20 @@ fn pin_far_end(
         b,
         // 両端の行が固定されていて左右対称ではないので、まとめない
         false,
-        |k, c| {
+        |k, c, forced| {
             if k < b {
-                // 行 k+1..=b は未定、far 側は確定
-                c + lb[n - 1 - k].max(free[b - k] + far_cost) <= total
+                // 行 k+1..=b は未定、far 側は確定。forced は未定の行 k+1 に入るので、
+                // その先の行の下界に足せる
+                let rest = n - 2 - k; // 行 k+2..=n-1 の行数
+                let mid = b - k - 1; // 行 k+2..=b の行数
+                let bound = lb[n - 1 - k]
+                    .max(free[b - k] + far_cost)
+                    .max(forced + lb[rest])
+                    .max(forced + free[mid] + far_cost);
+                c + bound <= total
             } else {
+                // 未定の行はもうない。forced は far 側の確定済みの行か盤外に入り、
+                // 確定済みの行の分は far_cost に含まれているので足さない
                 c + far_cost <= total
             }
         },
