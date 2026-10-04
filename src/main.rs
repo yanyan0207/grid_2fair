@@ -49,7 +49,7 @@ struct Args {
     #[arg(long)]
     to: Option<usize>,
     /// Search algorithm
-    #[arg(long, value_enum, default_value_t = Algo::Dfs)]
+    #[arg(long, value_enum, default_value_t = Algo::StripesDfs)]
     algo: Algo,
     /// Rows and columns left free at each edge when --algo stripes-dfs restricts rows to stripes
     #[arg(long, default_value_t = stripes::DEFAULT_MARGIN)]
