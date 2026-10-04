@@ -170,7 +170,7 @@ mod tests {
 
     #[test]
     fn matches_known() {
-        for n in 1..=12 {
+        for n in 1..=15 {
             let b = solve(n);
             assert!(b.is_valid(), "n = {n}");
             assert_eq!(Some(b.count()), known(n), "n = {n}");

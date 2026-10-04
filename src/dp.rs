@@ -302,7 +302,7 @@ mod tests {
 
     #[test]
     fn matches_dfs() {
-        for n in 1..=7 {
+        for n in 1..=15 {
             assert_eq!(solve(n).count(), dfs::solve(n).count(), "n = {n}");
         }
     }
@@ -327,7 +327,7 @@ mod tests {
 
     #[test]
     fn matches_known() {
-        for n in 1..=10 {
+        for n in 1..=15 {
             let b = solve(n);
             assert!(b.is_valid(), "n = {n}");
             assert_eq!(Some(b.count()), known(n), "n = {n}");
@@ -336,7 +336,7 @@ mod tests {
 
     #[test]
     fn budget_below_answer_is_infeasible() {
-        for n in 1..=10 {
+        for n in 1..=15 {
             let lb = lower_bounds(n, STRIP_HEIGHT);
             let a = known(n).unwrap();
             assert!(search(n, a - 1, &lb).min.is_none(), "n = {n}");
