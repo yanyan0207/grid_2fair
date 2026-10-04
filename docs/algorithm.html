@@ -151,8 +151,8 @@ ul.plain, ol.plain { margin: 0; padding-left: 1.4em; display: grid; gap: 6px; }
     <p class="axis-note">English | <a href="algorithm.ja.html">日本語</a></p>
     <div class="hero">
       <div style="display:grid;gap:12px">
-        <h1>Computing a(16)–a(19) with a row-by-row DP</h1>
-        <p class="lead">Paint some cells of an n×n grid so that every unpainted cell is orthogonally adjacent to exactly two painted cells. a(n) is the minimum number of painted cells. Starting from a row-by-row DFS (<code>src/dfs.rs</code>), we moved to a row-by-row DP that prunes with a budget and a lower bound (<code>src/dp.rs</code>) and computed a(16)–a(19), beyond the a(15) listed in the OEIS. This page explains how, step by step.</p>
+        <h1>Computing a(16)–a(19) with a row-by-row search</h1>
+        <p class="lead">Paint some cells of an n×n grid so that every unpainted cell is orthogonally adjacent to exactly two painted cells. a(n) is the minimum number of painted cells. Starting from a row-by-row DFS, we moved to a row-by-row DP that prunes with a budget and a lower bound (<code>src/dp.rs</code>) and computed a(16)–a(19), beyond the a(15) listed in the OEIS. Finally, putting the same lower bound into the DFS (<code>src/dfs.rs</code>) turned out to be faster than the DP, so the DFS is now the default. This page explains how, step by step.</p>
       </div>
       <figure>
         <svg id="hero-svg" role="img" aria-label="A minimum solution for n=16"></svg>
@@ -190,12 +190,14 @@ ul.plain, ol.plain { margin: 0; padding-left: 1.4em; display: grid; gap: 6px; }
 
   <section>
     <div class="eyebrow">Overview</div>
-    <h2>From a row-by-row DFS to a budgeted row-by-row DP</h2>
+    <h2>From DFS to DP, and back to DFS</h2>
     <ol class="plain">
-      <li><strong>Row-by-row DFS</strong>: decide one row at a time from the top. Once two rows are fixed, most of the next row is forced (ideas 1–5). n = 9 takes 16 s; n = 10 does not finish in 2 minutes.</li>
+      <li><strong>Row-by-row DFS</strong>: decide one row at a time from the top. Once two rows are fixed, most of the next row is forced (ideas 1–4). The first version had no lower bound: n = 9 took 16 s and n = 10 did not finish in 2 minutes.</li>
       <li><strong>DP (memoization)</strong>: what can happen below depends only on the last two rows, so paths reaching the same two rows are merged.</li>
       <li><strong>Budget and lower bound</strong>: decide "can it be done within the budget?" and prune with the minimum number of cells the remaining rows need. This brought a(15) down to a few seconds.</li>
       <li><strong>Less memory</strong>: keep only two tables. Reconstruct the board with DP passes in alternating directions. Merge left-right mirror states to halve the table.</li>
+      <li><strong>Lookahead</strong>: compute the forced cells of the next row before storing a state, and drop dead ends and over-budget states. 80–90% of the table had been states that die at the next row.</li>
+      <li><strong>Back to DFS</strong>: putting the budget, the lower bound, the lookahead and the symmetry into the DFS as is made it faster than the DP, with memory for just the n rows of the current path.</li>
     </ol>
   </section>
 
@@ -250,19 +252,20 @@ ul.plain, ol.plain { margin: 0; padding-left: 1.4em; display: grid; gap: 6px; }
   </section>
 
   <section>
-    <div class="eyebrow">Idea 5 (first version: dfs.rs)</div>
-    <h2>The last row, and pruning with the best so far</h2>
+    <div class="eyebrow">Idea 5 (dfs.rs)</div>
+    <h2>Fix a budget and prune before entering a row</h2>
     <ul class="plain">
-      <li><strong>Last row</strong>: nothing outside the board can be painted, so the search fails if the last row has any forced cell below it. If there are none, a solution is complete.</li>
-      <li><strong>Branch and bound</strong>: remember the best count found so far and stop when "painted so far + forced cells of the next row" reaches it. The initial upper bound is the trivial solution that paints every other column, n × (⌊n/2⌋ + 1) cells (for even n the last column is painted too). Each cell of an unpainted column has painted cells to its left and right and none above or below, so the condition always holds.</li>
-      <li><strong>First row</strong>: the row above the first row is outside the board, so it is treated as 0. All 2<sup>n</sup> first rows are tried.</li>
+      <li><strong>Budget</strong>: the search asks "can it be done with at most B cells?". B is raised one at a time from a lower bound, and the first feasible B is a(n). How the lower bound is built is explained in "Budget and lower bound" below.</li>
+      <li><strong>Check before entering</strong>: for each candidate next row, the forced cells below it are computed first. The search does not enter the row if it is a dead end (a white cell with 0 or 3 painted cells above, left and right), if it is the last row and needs painted cells outside the board, or if "cells painted so far + the minimum the remaining rows need" exceeds the budget.</li>
+      <li><strong>First row and symmetry</strong>: the row above the first row is outside the board, so it is treated as 0. A mirrored solution is also a solution, so only first rows no larger than their mirror image are tried.</li>
+      <li><strong>Nodes</strong>: the number of times the search enters a row after passing the check, summed over all budgets. This is the same count as the nodes printed by <code>cargo run --release</code>.</li>
     </ul>
   </section>
 
   <section>
     <div class="eyebrow">Demo (dfs.rs)</div>
     <h2>Step through the DFS</h2>
-    <p>This runs the same procedure as <code>src/dfs.rs</code> inside the page.</p>
+    <p>This runs the same procedure as <code>src/dfs.rs</code> inside the page. The node count matches the nodes printed by <code>cargo run --release -- n</code>.</p>
     <div class="demo">
       <div class="controls">
         <label for="sel-n">Board n
@@ -275,7 +278,7 @@ ul.plain, ol.plain { margin: 0; padding-left: 1.4em; display: grid; gap: 6px; }
         </label>
         <button id="btn-step" class="primary">Step</button>
         <button id="btn-play">Play</button>
-        <button id="btn-next">To next improvement</button>
+        <button id="btn-next">To budget result</button>
         <button id="btn-reset">Restart</button>
         <label for="speed">Speed <input id="speed" type="range" min="0" max="4" value="1"></label>
       </div>
@@ -287,11 +290,11 @@ ul.plain, ol.plain { margin: 0; padding-left: 1.4em; display: grid; gap: 6px; }
             <div class="stat"><span class="k">Nodes searched</span><span class="v" id="st-nodes">0</span></div>
             <div class="stat"><span class="k">Steps</span><span class="v" id="st-steps">0</span><span class="k" id="st-total"></span></div>
             <div class="stat"><span class="k">Painted so far</span><span class="v" id="st-painted">0</span></div>
-            <div class="stat"><span class="k">Best so far</span><span class="v" id="st-best">–</span></div>
+            <div class="stat"><span class="k">Current budget</span><span class="v" id="st-best">–</span></div>
           </div>
           <div class="best-box">
-            <span class="k">Best board so far</span>
-            <svg id="best-svg" role="img" aria-label="Best board so far"></svg>
+            <span class="k">Solution found</span>
+            <svg id="best-svg" role="img" aria-label="Solution found"></svg>
           </div>
           <div class="legend">
             <span><i class="sw" style="background:var(--accent);border-color:var(--accent)"></i>Painted cell</span>
@@ -308,18 +311,18 @@ ul.plain, ol.plain { margin: 0; padding-left: 1.4em; display: grid; gap: 6px; }
   <section>
     <div class="eyebrow">Results (dfs.rs)</div>
     <h2>DFS measurements</h2>
-    <p>Measured with a release build (<code>cargo run --release -- 3 --to 9 --algo dfs</code>). Nodes are counted as in the demo (number of calls to <code>search</code>).</p>
+    <p>Measured with a release build (<code>cargo run --release -- 3 --to 15</code>). Nodes are counted as in the demo.</p>
     <div class="table-wrap">
       <table>
         <thead><tr><th>n</th><th class="num">Result</th><th class="num">OEIS</th><th class="num">Nodes</th><th class="num">Time</th></tr></thead>
         <tbody id="results"></tbody>
       </table>
     </div>
-    <p>Each increase of n multiplies the node count and the time by about 50. n = 10 did not finish within 2 minutes.</p>
+    <p>Most of the time is the roughly 0.1 s spent computing the lower bound up front; the search itself is instant. The first DFS, which had no lower bound, needed about 1.7 billion nodes and 16 s for n = 9, and n = 10 did not finish within 2 minutes.</p>
   </section>
 
   <section>
-    <div class="eyebrow">Why the DFS is slow</div>
+    <div class="eyebrow">Why the first DFS was slow</div>
     <h2>It solves the same state over and over</h2>
     <p>What can happen from row k+1 down depends only on rows k−1 and k. Rows further up have already been checked and affect the future only through the number of cells painted so far.</p>
     <p>What is unique in the DFS is the path from row 0 to the current row. Many paths share the last two rows and differ only above, and the search below them is identical. The DFS redid that search every time.</p>
@@ -333,6 +336,7 @@ painted 7    painted 8    painted 9    painted 7</code></pre>
       <li>n = 5, first 3 rows: 1,045 DFS paths but only 357 distinct states.</li>
       <li>n = 9, first 6 rows: about 670 million DFS paths, but at most 80,000 distinct states at any depth.</li>
     </ul>
+    <p class="note">This led to the DP, but it later turned out that the main cause was the missing lower bound. The first DFS only checked whether "cells painted so far + forced cells of the next row" reached the best so far, and ignored the cells the remaining rows need. With a lower bound, the search also rarely reaches the same state by different paths (see "Back to DFS").</p>
   </section>
 
   <section>
@@ -432,7 +436,7 @@ c + anchored[n - 1 - k] &lt;= budget</code></pre>
   <section>
     <div class="eyebrow">Demo (dp.rs)</div>
     <h2>Build the DP table one row at a time</h2>
-    <p>This runs the same procedure as the search DP in <code>src/dp.rs</code> inside the page. Unlike the DFS demo, one click builds the whole table for the next row. Each card is one state: the upper strip is row k−1, the lower strip is row k, and the number is the minimum count through row k.</p>
+    <p>This runs the same procedure as the search DP in <code>src/dp.rs</code> inside the page. Unlike the DFS demo, one click builds the whole table for the next row. As in dp.rs, the forced cells of the next row are computed before a state is stored, and dead ends and over-budget states are not stored. Each card is one state: the upper strip is row k−1, the lower strip is row k, and the number is the minimum count through row k.</p>
     <div class="demo">
       <div class="controls">
         <label for="dp-n">Board n
@@ -462,7 +466,6 @@ c + anchored[n - 1 - k] &lt;= budget</code></pre>
       <div class="dp-cond" id="dp-cond"></div>
       <div class="legend">
         <span><i class="sw" style="background:var(--code-bg)"></i>Row outside the board (above row 0)</span>
-        <span><i class="sw" style="background:var(--forbid-soft);border-color:var(--forbid)"></i>Row k has a cell that cannot be satisfied; cannot advance</span>
         <span><i class="sw" style="background:var(--accent-soft);border-color:var(--accent)"></i>Closes off at the bottom edge in the last row (a solution)</span>
       </div>
       <div class="state-grid" id="dp-states"></div>
@@ -473,29 +476,46 @@ c + anchored[n - 1 - k] &lt;= budget</code></pre>
   <section>
     <div class="eyebrow">Results (dp.rs)</div>
     <h2>DP measurements</h2>
-    <p>Release build on a Core i7-12700F with 32 GB of RAM. The n = 18 and 19 rows are from the first DP version, which kept every table, used the standard hash map and had no symmetry.</p>
+    <p>Single-threaded release build on a Core i7-12700F with 32 GB of RAM. "Lookahead" is the current dp.rs; "no lookahead" is the version before it.</p>
     <div class="table-wrap">
       <table>
-        <thead><tr><th>n</th><th class="num">a(n)</th><th class="num">Transitions at budget a(n)−1</th><th class="num">Max states at budget a(n)</th><th class="num">Total time</th><th>Version</th></tr></thead>
+        <thead><tr><th>n</th><th class="num">a(n)</th><th class="num">Max states at budget a(n)</th><th class="num">Total time</th><th>Version</th></tr></thead>
         <tbody>
-          <tr><td class="mono">16</td><td class="num">102</td><td class="num">9,815,552</td><td class="num">3,324,051</td><td class="num">0.79 s</td><td>latest</td></tr>
-          <tr><td class="mono">17</td><td class="num">115</td><td class="num">329,993,824</td><td class="num">54,660,545</td><td class="num">16.3 s</td><td>latest</td></tr>
-          <tr><td class="mono">18</td><td class="num">128</td><td class="num">701,232,816</td><td class="num">126,622,590</td><td class="num">55.7 s</td><td>first DP</td></tr>
-          <tr><td class="mono">19</td><td class="num">141</td><td class="num">2,649,946,624</td><td class="num">536,865,479</td><td class="num">228 s</td><td>first DP</td></tr>
+          <tr><td class="mono">16</td><td class="num">102</td><td class="num">184,106</td><td class="num">0.48 s</td><td>lookahead</td></tr>
+          <tr><td class="mono">17</td><td class="num">115</td><td class="num">3,488,013</td><td class="num">6.3 s</td><td>lookahead</td></tr>
+          <tr><td class="mono">18</td><td class="num">128</td><td class="num">2,026,563</td><td class="num">7.1 s</td><td>lookahead</td></tr>
+          <tr><td class="mono">19</td><td class="num">141</td><td class="num">6,754,091</td><td class="num">21.5 s</td><td>lookahead</td></tr>
+          <tr><td class="mono">16</td><td class="num">102</td><td class="num">3,324,051</td><td class="num">0.75 s</td><td>no lookahead</td></tr>
+          <tr><td class="mono">17</td><td class="num">115</td><td class="num">54,660,545</td><td class="num">15.2 s</td><td>no lookahead</td></tr>
+          <tr><td class="mono">18</td><td class="num">128</td><td class="num">63,314,198</td><td class="num">19.4 s</td><td>no lookahead</td></tr>
+          <tr><td class="mono">19</td><td class="num">141</td><td class="num">268,439,434</td><td class="num">5,792 s</td><td>no lookahead</td></tr>
         </tbody>
       </table>
     </div>
-    <h3>Memory estimate (latest version, 32 GB)</h3>
-    <p>About 28 bytes per state (<code>FxHashMap&lt;u64, u16&gt;</code>), and two adjacent tables are held, so memory is estimated at about 45 bytes times the size of the largest table. The n = 20 figures are extrapolated from the trend "one more unit of budget means about 4 times as many states".</p>
-    <div class="table-wrap">
-      <table>
-        <thead><tr><th>n</th><th>Proof side (budget a(n)−1)</th><th>Finding side (budget a(n))</th></tr></thead>
-        <tbody>
-          <tr><td class="mono">19</td><td>about 2.5 GB</td><td>about 12 GB</td></tr>
-          <tr><td class="mono">20</td><td>about 11 GB (estimate)</td><td>about 45 GB (estimate, does not fit)</td></tr>
-        </tbody>
-      </table>
-    </div>
+    <p>Without lookahead, the 270-million-state table for n = 19 did not fit in memory and paging slowed it down. With lookahead, the peak memory for n = 19 was 345 MB. Still, the DP holds every state of a row, so each increase of n multiplies the memory needed by 5 to 8.</p>
+  </section>
+
+  <section>
+    <div class="eyebrow">Lookahead</div>
+    <h2>Look at the forced cells of the next row before storing a state</h2>
+    <p>When the state (cur, down) for row k+1 is created, only the condition on row cur has been checked. Whether the white cells of row down can be satisfied is known only when the next row is built. Measurements showed that 80–90% of the stored states died at the next row.</p>
+    <ul class="plain">
+      <li><strong>Do not store dead ends</strong>: compute <code>forced_below(cur, down)</code> before storing and skip the state if it is None.</li>
+      <li><strong>Add the forced cells to the bound</strong>: the forced cells of the next row will be painted, so a state is also skipped if "count + forced cells + lower bound for the rows after that" exceeds the budget.</li>
+    </ul>
+    <p>Both only drop, one step earlier, states that the next step would drop anyway, so the answer is unchanged.</p>
+  </section>
+
+  <section>
+    <div class="eyebrow">Back to DFS</div>
+    <h2>With the same pruning, the DFS is faster</h2>
+    <p>The current <code>src/dfs.rs</code> is the DFS with the budget, the strip lower bound, the lookahead and the symmetry added as is. It holds no state table, so it needs memory only for the n rows of the current path. Every n up to 15 finishes within 0.3 s.</p>
+    <ul class="plain">
+      <li><strong>It stops at the first solution under the feasible budget</strong>: the DP builds every row's table even for the feasible budget, which took most of its time.</li>
+      <li><strong>No reconstruction is needed</strong>: the current path is the solution.</li>
+      <li><strong>It rarely reaches the same state twice</strong>: the lower bound and the lookahead cut paths so much that, even without merging states as the DP does, little work is repeated.</li>
+    </ul>
+    <p>The first DFS was slow not because it was depth-first but because it had no lower bound.</p>
   </section>
 
   <section>
@@ -505,20 +525,21 @@ c + anchored[n - 1 - k] &lt;= budget</code></pre>
       <table>
         <thead><tr><th>File</th><th>Role</th></tr></thead>
         <tbody>
-          <tr><td><code>src/dp.rs</code></td><td>Budgeted row DP. <code>strip_min</code> and <code>lower_bounds</code> build the strip bound, <code>forward</code> is the two-table DP, <code>search</code> decides a budget, <code>reconstruct</code> and <code>pin_far_end</code> rebuild the board</td></tr>
-          <tr><td><code>src/dfs.rs</code></td><td>The first row DFS. <code>forced_below</code> (forced cells) is also used by the DP</td></tr>
+          <tr><td><code>src/dfs.rs</code></td><td>Budgeted row DFS (default). <code>admit</code> is the check before entering a row, <code>rec</code> the per-row recursion</td></tr>
+          <tr><td><code>src/dp.rs</code></td><td>Budgeted row DP. <code>forward</code> is the two-table DP, <code>search</code> decides a budget, <code>reconstruct</code> and <code>pin_far_end</code> rebuild the board</td></tr>
+          <tr><td><code>src/bound.rs</code></td><td>Strip lower bound. <code>strip_min</code> is the strip minimum, <code>lower_bounds</code> the bound for the remaining rows. Used by both DFS and DP</td></tr>
+          <tr><td><code>src/row.rs</code></td><td>Shared row operations: <code>forced_below</code> (forced cells), state keys, left-right mirroring</td></tr>
           <tr><td><code>src/brute.rs</code></td><td>Brute force over all 2<sup>n²</sup> boards, for cross-checking (n ≤ 5 or so)</td></tr>
           <tr><td><code>src/board.rs</code></td><td>The <code>Board</code> type and the validity check <code>is_valid</code></td></tr>
           <tr><td><code>src/lib.rs</code></td><td>Known OEIS values a(1)–a(15)</td></tr>
-          <tr><td><code>src/main.rs</code></td><td>Command line (<code>n</code>, <code>--to</code>, <code>--algo dp|dfs|brute</code>, default <code>dp</code>). Every result is checked with <code>is_valid</code> before printing</td></tr>
+          <tr><td><code>src/main.rs</code></td><td>Command line (<code>n</code>, <code>--to</code>, <code>--algo dfs|dp|brute</code>, default <code>dfs</code>). Every result is checked with <code>is_valid</code> before printing</td></tr>
         </tbody>
       </table>
     </div>
     <h3>Not done yet</h3>
     <ol class="plain">
       <li><strong>Tighter lower bound</strong>: the gap between the bound and the answer is 6–8 for n = 16–19. One unit of budget changes the state count about fourfold, so tightening the bound by 1 is worth roughly one smaller n. Options include taller strips and a bound that depends on the current row.</li>
-      <li><strong>Compact states</strong>: process states grouped by current row and pack key and count into a single u64 in an array (8 bytes per state).</li>
-      <li><strong>Lighter finding side</strong>: fixing the top two rows to the shape common in optimal solutions would remove the most expensive search at budget a(n).</li>
+      <li><strong>A cache for the DFS</strong>: remember in a fixed-size table that "this state cannot be finished within a remaining budget of A" and skip it when it comes up again. This reduces repeated work for large n while keeping memory fixed.</li>
       <li><strong>Proof for general n</strong>: prove upper and lower bounds from the "each difference repeats three times" pattern and the diagonal-stripe shape of the solutions.</li>
     </ol>
   </section>
@@ -654,72 +675,151 @@ c + anchored[n - 1 - k] &lt;= budget</code></pre>
     return ~cur & full & ~(ones | twos);
   }
 
+  /* ---- bound.rs と row.rs と同じ計算（DFS と DP のデモで使う） ---- */
+  const INF = 1e9;
+
+  // bound.rs の column_requirements / strip_min / lower_bounds と同じ計算
+  function columnReq(h, l, c, topFree, botFree) {
+    let must1 = 0, must0 = 0;
+    for (let i = 0; i < h; i++) {
+      if ((c >> i) & 1) continue;
+      let s = (l >> i) & 1, f = 0;
+      if (i > 0) s += (c >> (i - 1)) & 1; else if (topFree) f++;
+      if (i + 1 < h) s += (c >> (i + 1)) & 1; else if (botFree) f++;
+      const ok = x => s + x <= 2 && 2 - s - x <= f;
+      const o0 = ok(0), o1 = ok(1);
+      if (!o0 && !o1) return null;
+      if (!o0) must1 |= 1 << i; else if (!o1) must0 |= 1 << i;
+    }
+    return [must1, must0];
+  }
+  function stripMin(n, h, topFree, botFree) {
+    const size = 1 << h, mask = size - 1;
+    let cur = new Array(size * size).fill(INF);
+    for (let c = 0; c < size; c++) cur[c] = popcount(c);
+    for (let col = 0; col < n; col++) {
+      const last = col + 1 === n;
+      const next = last ? null : new Array(size * size).fill(INF);
+      let best = INF;
+      for (let l = 0; l < size; l++) for (let c = 0; c < size; c++) {
+        const v = cur[l * size + c];
+        if (v === INF) continue;
+        const req = columnReq(h, l, c, topFree, botFree);
+        if (!req) continue;
+        const [must1, must0] = req;
+        if (last) { if (must1 === 0) best = Math.min(best, v); continue; }
+        const free = mask & ~must1 & ~must0;
+        let sub = free;
+        for (;;) {
+          const r = must1 | sub, w = v + popcount(r), k = c * size + r;
+          if (w < next[k]) next[k] = w;
+          if (sub === 0) break;
+          sub = (sub - 1) & free;
+        }
+      }
+      if (last) return best;
+      cur = next;
+    }
+  }
+  const LB = {};
+  function lowerBounds(n) {
+    if (LB[n]) return LB[n];
+    const maxH = Math.min(9, n);
+    const strip = (h, botFree) => h === 0 ? 0 : stripMin(n, h, true, botFree);
+    const freeStrip = [], bottomStrip = [];
+    for (let h = 0; h <= maxH; h++) { freeStrip.push(strip(h, true)); bottomStrip.push(strip(h, false)); }
+    const free = new Array(n + 1).fill(0), anchored = new Array(n + 1).fill(0);
+    for (let j = 1; j <= n; j++) {
+      let m = 0;
+      for (let t = 1; t <= Math.min(maxH, j); t++) m = Math.max(m, freeStrip[t] + free[j - t]);
+      free[j] = m;
+    }
+    for (let j = 1; j <= n; j++) {
+      let m = 0;
+      for (let h = 1; h <= Math.min(maxH, j); h++) m = Math.max(m, bottomStrip[h] + free[j - h]);
+      anchored[j] = m;
+    }
+    return (LB[n] = anchored);
+  }
+
+  const mirrorRow = (n, row) => { let r = 0; for (let i = 0; i < n; i++) if ((row >> i) & 1) r |= 1 << (n - 1 - i); return r; };
   /* ---- デモ: dfs.rs と同じ探索を 1 手ずつ ---- */
+  // nodes は dfs.rs と同じく、枝刈りを通って行に進んだ回数（rec を呼んだ回数）を全予算で合計したもの
   function* searchSteps(n) {
-    const full = (1 << n) - 1;
+    const full = (1 << n) - 1, lb = lowerBounds(n);
     const rows = [];
-    const ub = n * (Math.floor(n / 2) + 1);   // 列を 1 本おきに塗る自明な解
-    const st = { nodes: 0, best: ub + 1, bestRows: [] };
+    const st = { nodes: 0, budget: lb[n], solution: [] };
     const S = (kind, msg, extra) => Object.assign({
       kind, msg, rows: rows.slice(), nodes: st.nodes,
-      best: st.best <= ub ? st.best : null, bestRows: st.bestRows.slice(),
+      best: st.budget, bestRows: st.solution.slice(),
       r: rows.length - 1, forced: 0, free: 0, dead: 0, painted: 0,
     }, extra || {});
+    const show = m => { let t = ""; for (let c = 0; c < n; c++) t += bit(m, c) ? "#" : "."; return t; };
 
-    function* search(r, paintedCount) {
-      st.nodes++;
-      const up = r === 0 ? 0 : rows[r - 1];
-      const cur = rows[r];
+    // dfs.rs の admit と同じ判定。進めないときは理由も返す
+    function check(k, up, cur, c) {
       const forced = forcedBelow(n, up, cur);
-      if (forced === null) {
-        yield S("cut", `Row ${r} has a white cell with 0 or 3 painted cells above, left and right. One cell below cannot make it 2, so this is a dead end.`,
-          { r, dead: deadCells(n, up, cur), painted: paintedCount });
-        return;
+      if (forced === null) return { ok: false, why: "dead", forced: 0 };
+      const rest = n - 1 - k;
+      if (rest === 0) {
+        if (forced !== 0) return { ok: false, why: "outside", forced };
+        return { ok: c <= st.budget, why: "over", forced: 0, need: c };
       }
-      if (r + 1 === n) {
-        if (forced !== 0) {
-          yield S("cut", `A white cell in the last row needs a painted cell outside the board. Dead end.`,
-            { r, forced, painted: paintedCount, outside: true });
-        } else if (paintedCount < st.best) {
-          st.best = paintedCount;
-          st.bestRows = rows.slice();
-          yield S("best", `Every cell satisfies the condition. New best: ${paintedCount} painted cells. From now on, branches reaching ${paintedCount} or more are cut.`,
-            { r, painted: paintedCount });
-        }
-        return;
+      const need = c + Math.max(lb[rest], popcount(forced) + lb[rest - 1]);
+      return { ok: need <= st.budget, why: "over", forced, need };
+    }
+    const cut = (k, up, cur, c, ch) => S("cut",
+      ch.why === "dead" ? `Row ${k} has a white cell with 0 or 3 painted cells above, left and right. One cell below cannot make it 2, so the search does not enter this row.` : ch.why === "outside" ? `A white cell in the last row needs a painted cell outside the board. The search does not enter this row.` : `${c} cells through row ${k} plus the minimum the remaining rows need is ${ch.need}, over the budget ${st.budget}. The search does not enter this row.`,
+      { r: k, painted: c, forced: ch.forced, outside: ch.why === "outside", dead: ch.why === "dead" ? deadCells(n, up, cur) : 0 });
+
+    function* rec(k, up, cur, c) {
+      st.nodes++;
+      if (k + 1 === n) {
+        st.solution = rows.slice();
+        yield S("best", `Every row up to the last one satisfies the condition. Budget ${st.budget} is enough.`, { r: k, painted: c });
+        return true;
       }
-      const base = paintedCount + popcount(forced);
-      if (base >= st.best) {
-        yield S("cut", `The forced cells of row ${r + 1} alone bring the count to ${base}, not below the best ${st.best}. This branch is skipped.`,
-          { r, forced, painted: paintedCount });
-        return;
-      }
-      yield S("forced", `Row ${r} checked. Row ${r + 1} gets ${popcount(forced)} forced cells and ${popcount(cur)} free cells (${1 << popcount(cur)} choices).`,
-        { r, forced, free: cur, painted: paintedCount });
+      const forced = forcedBelow(n, up, cur);
+      yield S("forced", `Row ${k} checked. Row ${k + 1} gets ${popcount(forced)} forced cells and ${popcount(cur)} free cells (${1 << popcount(cur)} choices).`, { r: k, forced, free: cur, painted: c });
       let sub = cur;
       for (;;) {
-        const down = forced | sub;
-        const next = base + popcount(sub);
-        if (next < st.best) {
-          rows.push(down);
-          yield S("choose", `Row ${r + 1} chosen (${popcount(down)} painted, ${next} in total).`, { r: r + 1, painted: next });
-          yield* search(r + 1, next);
-          rows.pop();
+        const down = forced | sub, w = c + popcount(down);
+        const ch = check(k + 1, cur, down, w);
+        rows.push(down);
+        if (ch.ok) {
+          yield S("choose", `Enter row ${k + 1} as ${show(down)} (${popcount(down)} painted, ${w} in total).`, { r: k + 1, painted: w });
+          if (yield* rec(k + 1, cur, down, w)) return true;
+        } else {
+          yield cut(k + 1, cur, down, w, ch);
         }
+        rows.pop();
         if (sub === 0) break;
         sub = (sub - 1) & cur;
       }
+      return false;
     }
 
-    for (let first = 0; first <= full; first++) {
-      const count = popcount(first);
-      if (count >= st.best) continue;
-      rows.push(first);
-      yield S("choose", `Row 0 is set to ${first.toString(2).padStart(n, "0").split("").reverse().join("")} (${count} painted).`, { r: 0, painted: count });
-      yield* search(0, count);
-      rows.pop();
+    for (;;) {
+      yield S("budget", `Search for a solution with at most ${st.budget} cells.${st.budget === lb[n] ? ` The lower bound is ${lb[n]}, so start here.` : ""}`, { r: -1 });
+      for (let first = 0; first <= full; first++) {
+        // 解を左右反転しても解なので、行 0 が左右反転以下のものだけ調べる
+        if (first > mirrorRow(n, first)) continue;
+        const c = popcount(first), ch = check(0, 0, first, c);
+        rows.push(first);
+        if (ch.ok) {
+          yield S("choose", `Enter row 0 as ${show(first)} (${c} painted).`, { r: 0, painted: c });
+          if (yield* rec(0, 0, first, c)) {
+            yield S("done", `Search finished. a(${n}) = ${st.budget}. The ${st.nodes} nodes match the nodes printed by cargo run --release -- ${n}.`, { r: -1 });
+            return;
+          }
+        } else {
+          yield cut(0, 0, first, c, ch);
+        }
+        rows.pop();
+      }
+      yield S("infeasible", `With budget ${st.budget}, no first row leads to the last row. ${st.budget} cells are not enough, so raise the budget by 1.`, { r: -1 });
+      st.budget++;
     }
-    yield S("done", `Search finished. a(${n}) = ${st.best}.`, { r: -1 });
   }
 
   const svg = el("demo-svg"), bestSvg = el("best-svg"), elMsg = el("msg");
@@ -767,7 +867,7 @@ c + anchored[n - 1 - k] &lt;= budget</code></pre>
     el("st-best").textContent = snap && snap.best !== null ? snap.best : "–";
     if (snap) {
       elMsg.textContent = snap.msg;
-      elMsg.className = "msg" + (snap.kind === "best" || snap.kind === "done" ? " best" : snap.kind === "cut" ? " cut" : "");
+      elMsg.className = "msg" + (snap.kind === "best" || snap.kind === "done" ? " best" : (snap.kind === "cut" || snap.kind === "infeasible") ? " cut" : "");
     }
   }
 
@@ -799,7 +899,7 @@ c + anchored[n - 1 - k] &lt;= budget</code></pre>
     stop();
     const [ms, per] = SPEEDS[+el("speed").value];
     timer = setInterval(() => {
-      for (let i = 0; i < per; i++) { const s = advance(); if (!s) break; if (s.kind === "best" && per > 1) break; }
+      for (let i = 0; i < per; i++) { const s = advance(); if (!s) break; if ((s.kind === "best" || s.kind === "infeasible") && per > 1) break; }
       render();
     }, ms);
     el("btn-play").textContent = "Stop";
@@ -813,7 +913,7 @@ c + anchored[n - 1 - k] &lt;= budget</code></pre>
   el("btn-play").addEventListener("click", () => { if (timer) stop(); else if (!finished) play(); });
   el("btn-next").addEventListener("click", () => {
     stop();
-    for (let i = 0; i < 5000000; i++) { const s = advance(); if (!s || s.kind === "best" || s.kind === "done") break; }
+    for (let i = 0; i < 5000000; i++) { const s = advance(); if (!s || s.kind === "best" || s.kind === "done" || s.kind === "infeasible") break; }
     render();
   });
   el("btn-reset").addEventListener("click", reset);
@@ -824,73 +924,6 @@ c + anchored[n - 1 - k] &lt;= budget</code></pre>
   /* ---- デモ: dp.rs と同じ判定の DP を 1 行ずつ ---- */
   (function () {
     const KNOWN = { 4: 8, 5: 11, 6: 17 };
-    const INF = 1e9;
-
-    // dp.rs の column_requirements / strip_min / lower_bounds と同じ計算
-    function columnReq(h, l, c, topFree, botFree) {
-      let must1 = 0, must0 = 0;
-      for (let i = 0; i < h; i++) {
-        if ((c >> i) & 1) continue;
-        let s = (l >> i) & 1, f = 0;
-        if (i > 0) s += (c >> (i - 1)) & 1; else if (topFree) f++;
-        if (i + 1 < h) s += (c >> (i + 1)) & 1; else if (botFree) f++;
-        const ok = x => s + x <= 2 && 2 - s - x <= f;
-        const o0 = ok(0), o1 = ok(1);
-        if (!o0 && !o1) return null;
-        if (!o0) must1 |= 1 << i; else if (!o1) must0 |= 1 << i;
-      }
-      return [must1, must0];
-    }
-    function stripMin(n, h, topFree, botFree) {
-      const size = 1 << h, mask = size - 1;
-      let cur = new Array(size * size).fill(INF);
-      for (let c = 0; c < size; c++) cur[c] = popcount(c);
-      for (let col = 0; col < n; col++) {
-        const last = col + 1 === n;
-        const next = last ? null : new Array(size * size).fill(INF);
-        let best = INF;
-        for (let l = 0; l < size; l++) for (let c = 0; c < size; c++) {
-          const v = cur[l * size + c];
-          if (v === INF) continue;
-          const req = columnReq(h, l, c, topFree, botFree);
-          if (!req) continue;
-          const [must1, must0] = req;
-          if (last) { if (must1 === 0) best = Math.min(best, v); continue; }
-          const free = mask & ~must1 & ~must0;
-          let sub = free;
-          for (;;) {
-            const r = must1 | sub, w = v + popcount(r), k = c * size + r;
-            if (w < next[k]) next[k] = w;
-            if (sub === 0) break;
-            sub = (sub - 1) & free;
-          }
-        }
-        if (last) return best;
-        cur = next;
-      }
-    }
-    const LB = {};
-    function lowerBounds(n) {
-      if (LB[n]) return LB[n];
-      const maxH = Math.min(9, n);
-      const strip = (h, botFree) => h === 0 ? 0 : stripMin(n, h, true, botFree);
-      const freeStrip = [], bottomStrip = [];
-      for (let h = 0; h <= maxH; h++) { freeStrip.push(strip(h, true)); bottomStrip.push(strip(h, false)); }
-      const free = new Array(n + 1).fill(0), anchored = new Array(n + 1).fill(0);
-      for (let j = 1; j <= n; j++) {
-        let m = 0;
-        for (let t = 1; t <= Math.min(maxH, j); t++) m = Math.max(m, freeStrip[t] + free[j - t]);
-        free[j] = m;
-      }
-      for (let j = 1; j <= n; j++) {
-        let m = 0;
-        for (let h = 1; h <= Math.min(maxH, j); h++) m = Math.max(m, bottomStrip[h] + free[j - h]);
-        anchored[j] = m;
-      }
-      return (LB[n] = anchored);
-    }
-
-    const mirrorRow = (n, row) => { let r = 0; for (let i = 0; i < n; i++) if ((row >> i) & 1) r |= 1 << (n - 1 - i); return r; };
     const rawKey = (up, cur) => up * 64 + cur;
 
     const ui = id => document.getElementById(id);
@@ -905,6 +938,17 @@ c + anchored[n - 1 - k] &lt;= budget</code></pre>
     }
 
     // 状態を表に入れる。同じ状態なら塗り数の小さい方を残す
+    // dp.rs の forward と同じ 1 行先読み。表に入れる前に次の行の強制マスを求める。
+    // "dead": 行 cur の条件を満たせない（最後の行なら盤の外に塗りが要る）、"over": 予算超過、"ok": 入れる
+    function admit(k, up, cur, c) {
+      const { n, lb, budget } = st;
+      const f = forcedBelow(n, up, cur);
+      if (f === null) return "dead";
+      const rest = n - 1 - k;
+      if (rest === 0) return f !== 0 ? "dead" : c <= budget ? "ok" : "over";
+      return c + Math.max(lb[rest], popcount(f) + lb[rest - 1]) <= budget ? "ok" : "over";
+    }
+
     function insert(next, seen, up, cur, w) {
       const raw = rawKey(up, cur);
       const key = st.sym ? Math.min(raw, rawKey(mirrorRow(st.n, up), mirrorRow(st.n, cur))) : raw;
@@ -924,10 +968,11 @@ c + anchored[n - 1 - k] &lt;= budget</code></pre>
       const seen = new Set();
       for (let row = 0; row <= full; row++) {
         const c = popcount(row);
-        if (c + lb[n - 1] > budget) st.over++; else insert(st.table, seen, 0, row, c);
+        const r = admit(0, 0, row, c);
+        if (r === "dead") st.dead++; else if (r === "over") st.over++; else insert(st.table, seen, 0, row, c);
       }
       msg.className = "msg";
-      msg.textContent = `Of the ${full + 1} candidates for row 0, ${st.over} exceed the budget and are dropped; ${st.table.size} states enter the table. Press “Next row” to build the table for row 1.`;
+      msg.textContent = `Of the ${full + 1} candidates for row 0, ${st.dead} would be dead ends at the next row and ${st.over} exceed the budget; ${st.table.size} states enter the table. Press “Next row” to build the table for row 1.`;
       render();
     }
 
@@ -959,13 +1004,14 @@ c + anchored[n - 1 - k] &lt;= budget</code></pre>
       const next = new Map(), seen = new Set();
       st.trans = st.over = st.dup = st.mirror = st.dead = 0;
       for (const e of st.table.values()) {
+        // 表に入れた状態なので、強制マスは必ず求まる
         const f = forcedBelow(n, e.up, e.cur);
-        if (f === null) { st.dead++; continue; }
         let sub = e.cur;
         for (;;) {
           const down = f | sub, w = e.c + popcount(down);
           st.trans++;
-          if (w + lb[n - 2 - st.k] > budget) st.over++; else insert(next, seen, e.cur, down, w);
+          const r = admit(st.k + 1, e.cur, down, w);
+          if (r === "dead") st.dead++; else if (r === "over") st.over++; else insert(next, seen, e.cur, down, w);
           if (sub === 0) break;
           sub = (sub - 1) & e.cur;
         }
@@ -973,7 +1019,7 @@ c + anchored[n - 1 - k] &lt;= budget</code></pre>
       st.k++;
       st.table = next;
       msg.className = "msg";
-      msg.textContent = `Built the table for row ${st.k}. Skipped ${st.dead} dead-end states; of ${st.trans} transitions, ${st.over} exceeded the budget; ` +
+      msg.textContent = `Built the table for row ${st.k}. Of ${st.trans} transitions, ${st.dead} would be dead ends at the next row and ${st.over} exceeded the budget; ` +
         `after merging duplicates, ${next.size} states remain.` + (st.k === n - 1 ? " This is the last row. Press again to check whether it closes off at the bottom edge." : "");
       render();
     }
@@ -1038,9 +1084,11 @@ c + anchored[n - 1 - k] &lt;= budget</code></pre>
   })();
 
   /* ---- 結果表 ---- */
-  const RES = [[3, 5, 5, 34, "5.2 µs"], [4, 8, 8, 258, "4.2 µs"], [5, 11, 11, 1969, "24 µs"],
-               [6, 17, 17, 54441, "0.49 ms"], [7, 21, 21, 630496, "5.8 ms"], [8, 28, 28, 31878503, "0.30 s"],
-               [9, 35, 35, 1730460358, "16.0 s"], [10, null, 42, null, "> 120 s"]];
+  const RES = [[3, 5, 5, 4, "92 µs"], [4, 8, 8, 5, "53 µs"], [5, 11, 11, 9, "0.17 ms"],
+               [6, 17, 17, 80, "0.92 ms"], [7, 21, 21, 15, "4.1 ms"], [8, 28, 28, 88, "20 ms"],
+               [9, 35, 35, 335, "95 ms"], [10, 42, 42, 421, "0.11 s"], [11, 51, 51, 3386, "0.13 s"],
+               [12, 60, 60, 10218, "0.14 s"], [13, 69, 69, 18431, "0.16 s"], [14, 80, 80, 197804, "0.21 s"],
+               [15, 91, 91, 466183, "0.29 s"]];
   el("results").innerHTML = RES.map(([n, got, oeis, nodes, t]) =>
     `<tr><td class="mono">${n}</td><td class="num">${got ?? "–"}</td><td class="num">${oeis}</td>` +
     `<td class="num">${nodes === null ? "–" : nodes.toLocaleString()}</td><td class="num">${t}</td></tr>`

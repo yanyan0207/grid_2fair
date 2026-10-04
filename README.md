@@ -33,53 +33,69 @@ Always use a release build. A debug build is orders of magnitude slower.
 ```sh
 cargo run --release -- 16            # solve n = 16
 cargo run --release -- 3 --to 18     # solve n = 3 through 18 in order
-cargo run --release -- 8 --algo dfs  # choose the algorithm (dp | dfs | brute, default dp)
+cargo run --release -- 16 --algo dp  # choose the algorithm (dfs | dp | brute, default dfs)
 ```
 
-The output shows the verdict for each budget, the progress of the reconstruction, the solution board (`#` = painted), the number of painted cells, and the elapsed time.
-The upper limit of n is 30 for dp, 63 for dfs and 7 for brute. In practice dp handles n ≤ 19, dfs n ≤ 9 and brute n ≤ 5.
+The output shows the verdict for each budget, the solution board (`#` = painted), the number of painted cells, and the elapsed time. The DFS also prints the number of search nodes; the DP prints the progress of the reconstruction.
+The upper limit of n is 30 for dfs and dp, and 7 for brute. brute is practical only up to n = 5.
 
 ## Algorithm
 
-Open [docs/algorithm.html](docs/algorithm.html) in a browser for an illustrated explanation with measurements. In short:
+Open [docs/algorithm.html](docs/algorithm.html) in a browser for an illustrated explanation with measurements and interactive demos. In short:
 
 - Each row is a bit mask and rows are decided from the top down. Once two consecutive rows are fixed, most of the next row is forced (`forced_below`).
-- A row-by-row DP whose state is the last two rows. For a budget B it decides whether B cells suffice; the budget is raised one at a time from a lower bound.
+- For a budget B the search decides whether B cells suffice; the budget is raised one at a time from a lower bound, and the first feasible budget is a(n).
 - The lower bound for the remaining rows is built from the minimum number of painted cells in horizontal strips of height up to 9 (computed by a column-wise DP).
-- States that coincide under a left-right reflection are merged.
-- Only two row tables are kept; the board is reconstructed by alternating-direction DP passes.
+- Before entering a row, the forced cells of the next row are computed. Dead ends and states whose count plus lower bound exceeds the budget are pruned (lookahead).
+- Left-right mirror images are searched only once.
+- The default DFS keeps only the current path in memory. The DP keeps one row of states in a hash table, keeps only two tables, and reconstructs the board by alternating-direction DP passes.
 
 ## Measurements
 
 Single-threaded on a Core i7-12700F with 32 GB of RAM.
 
+DFS (default):
+
+| n | Total time | Nodes |
+|--:|--:|--:|
+| 13 | 0.16 s | 18,431 |
+| 14 | 0.21 s | 197,804 |
+| 15 | 0.29 s | 466,183 |
+
+Most of this time is the roughly 0.1 s spent computing the lower bound.
+
+DP:
+
 | n | Total time | Max states | Peak memory |
 |--:|--:|--:|--:|
-| 16 | 0.75 s | 3,324,051 | |
-| 17 | 15.2 s | 54,660,545 | |
-| 18 | 19.4 s | 63,314,198 | 4.4 GB |
-| 19 | 5,792 s | 268,439,434 | |
+| 16 | 0.48 s | 184,106 | |
+| 17 | 6.3 s | 3,488,013 | |
+| 18 | 7.1 s | 2,026,563 | |
+| 19 | 21.5 s | 6,754,091 | 345 MB |
 
-At n = 19 the state table no longer fits in memory and the time per transition is more than 100 times that of n = 18. Going beyond n = 20 requires a smaller state table.
+The DP's memory grows 5 to 8 times with each increase of n, while the DFS needs memory only for the current path.
 
 ## Layout
 
 | File | Role |
 |---|---|
-| `src/dp.rs` | Budgeted row DP: strip lower bounds (`strip_min`, `lower_bounds`), two-table DP (`forward`), feasibility test (`search`), reconstruction (`reconstruct`) |
-| `src/dfs.rs` | The original row-by-row DFS. `forced_below` is shared with the DP |
+| `src/dfs.rs` | Budgeted row-by-row DFS (default): check before entering a row (`admit`), recursion (`rec`) |
+| `src/dp.rs` | Budgeted row-by-row DP: two-table DP (`forward`), feasibility test (`search`), reconstruction (`reconstruct`) |
+| `src/bound.rs` | Strip lower bounds (`strip_min`, `lower_bounds`), shared by DFS and DP |
+| `src/row.rs` | Shared row operations: forced cells (`forced_below`), state keys, mirroring |
 | `src/brute.rs` | Brute force, used only for cross-checking |
 | `src/board.rs` | Board representation and validity check |
 | `src/lib.rs` | Known OEIS values |
 | `src/main.rs` | Command-line interface |
+| `examples/profile.rs` | Prints a per-row breakdown of the DP states |
 
 ## Tests
 
 ```sh
-cargo test
+cargo test --release
 ```
 
-The tests check that brute force, DFS and DP agree with each other and with the OEIS values, that the lower bound never exceeds the answer, that a budget one below the answer is infeasible, and that merging mirrored states does not change the verdict.
+The tests check that DFS and DP agree with each other and with the OEIS values up to n = 15, that brute force agrees for small n, that the lower bound never exceeds the answer, that a budget one below the answer is infeasible, and that merging mirrored states does not change the verdict.
 
 ## Solutions for the new terms
 

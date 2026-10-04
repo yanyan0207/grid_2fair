@@ -151,8 +151,8 @@ ul.plain, ol.plain { margin: 0; padding-left: 1.4em; display: grid; gap: 6px; }
     <p class="axis-note"><a href="algorithm.html">English</a> | 日本語</p>
     <div class="hero">
       <div style="display:grid;gap:12px">
-        <h1>行単位の DP で a(16)〜a(19) を求める</h1>
-        <p class="lead">n×n の格子のマスをいくつか塗り、塗っていないマスがどれも上下左右でちょうど 2 個の塗ったマスに接するようにします。塗るマスの最小個数が a(n) です。最初に作った行単位の DFS（<code>src/dfs.rs</code>）から、予算と下界で枝を切る行単位の DP（<code>src/dp.rs</code>）へ進めて、OEIS に載っている a(15) の先、a(16)〜a(19) まで求めました。その仕組みを順に説明します。</p>
+        <h1>行単位の探索で a(16)〜a(19) を求める</h1>
+        <p class="lead">n×n の格子のマスをいくつか塗り、塗っていないマスがどれも上下左右でちょうど 2 個の塗ったマスに接するようにします。塗るマスの最小個数が a(n) です。行単位の DFS から始め、予算と下界で枝を切る行単位の DP（<code>src/dp.rs</code>）で、OEIS に載っている a(15) の先、a(16)〜a(19) まで求めました。最後に、同じ下界を DFS（<code>src/dfs.rs</code>）に入れると DP より速くなることが分かり、今は DFS が既定です。その仕組みを順に説明します。</p>
       </div>
       <figure>
         <svg id="hero-svg" role="img" aria-label="n=16 の最小解"></svg>
@@ -190,12 +190,14 @@ ul.plain, ol.plain { margin: 0; padding-left: 1.4em; display: grid; gap: 6px; }
 
   <section>
     <div class="eyebrow">流れ</div>
-    <h2>行単位の DFS から、予算付きの行単位 DP へ</h2>
+    <h2>DFS から DP へ進み、また DFS に戻る</h2>
     <ol class="plain">
-      <li><strong>行単位の DFS</strong>: 上から 1 行ずつ決める。2 行決まると次の行の大半が強制される（考え方 1〜5）。n = 9 で 16 秒、n = 10 は 2 分で終わらない。</li>
+      <li><strong>行単位の DFS</strong>: 上から 1 行ずつ決める。2 行決まると次の行の大半が強制される（考え方 1〜4）。最初の版は下界を持たず、n = 9 で 16 秒、n = 10 は 2 分で終わらなかった。</li>
       <li><strong>DP（メモ化）</strong>: 先の探索は直前の 2 行だけで決まるので、同じ 2 行に来た経路をまとめる。</li>
       <li><strong>予算と下界</strong>: 「予算以下で塗れるか」を判定し、残りの行に最低限必要な塗り数で枝を切る。これで a(15) が数秒になった。</li>
       <li><strong>メモリの削減</strong>: 表は 2 枚だけ持つ。盤面は、向きを交互に変える DP で復元する。左右対称で状態を半分にする。</li>
+      <li><strong>先読み</strong>: 状態を表に入れる前に次の行の強制マスを求め、行き止まりと予算超過を捨てる。表の 8〜9 割が次の行で行き止まりになる状態だった。</li>
+      <li><strong>DFS に戻る</strong>: 予算、下界、先読み、左右対称をそのまま DFS に入れると、DP より速く、メモリも経路の n 行分だけで済んだ。</li>
     </ol>
   </section>
 
@@ -250,19 +252,20 @@ ul.plain, ol.plain { margin: 0; padding-left: 1.4em; display: grid; gap: 6px; }
   </section>
 
   <section>
-    <div class="eyebrow">考え方 5（最初の版: dfs.rs）</div>
-    <h2>最後の行と、暫定最良による枝刈り</h2>
+    <div class="eyebrow">考え方 5（dfs.rs）</div>
+    <h2>予算を決めて、進む前に枝を切る</h2>
     <ul class="plain">
-      <li><strong>最後の行</strong>: 盤の外は塗れないので、最後の行の強制マスが 1 つでもあれば失敗です。強制マスが空なら解が 1 つ完成します。</li>
-      <li><strong>分枝限定</strong>: これまでに見つけた最良の個数を覚えておき、「今までの塗り数 + 次の行の強制マス数」がそれ以上なら、その先は調べません。最初の上限は、列を 1 本おきに全部塗る自明な解の個数 n × (⌊n/2⌋ + 1) です（n が偶数なら最後の列も塗る）。塗っていない列のマスは左右が塗られ、上下は塗られていないので、必ず条件を満たします。</li>
-      <li><strong>1 行目</strong>: 1 行目の上は盤の外なので、上の行を 0 として扱います。1 行目は 2<sup>n</sup> 通りすべてを試します。</li>
+      <li><strong>予算</strong>: 「予算 B 個以下で塗れるか」を調べます。B は下界から 1 つずつ上げ、初めて塗れた B が a(n) です。下界の作り方は、後の「予算と下界」で説明します。</li>
+      <li><strong>進む前の判定</strong>: 次の行の候補ごとに、その行の強制マスまで求めてから進むかを決めます。行き止まり（上・左・右の塗りが 0 個か 3 個の白マスがある）、最後の行なのに盤の外に塗りが要る、「ここまでの塗り数 + 残りの行に最低限必要な塗り数」が予算を超える、のどれかなら進みません。</li>
+      <li><strong>1 行目と左右対称</strong>: 1 行目の上は盤の外なので、上の行を 0 として扱います。解を左右反転しても解なので、1 行目は左右反転したもの以下の行だけ試します。</li>
+      <li><strong>探索ノード数</strong>: 判定を通って行に進んだ回数です。全部の予算で合計します。<code>cargo run --release</code> が表示する nodes と同じ数え方です。</li>
     </ul>
   </section>
 
   <section>
     <div class="eyebrow">デモ（dfs.rs）</div>
     <h2>DFS の探索を 1 手ずつ見る</h2>
-    <p><code>src/dfs.rs</code> と同じ手順を、このページの中で動かしています。</p>
+    <p><code>src/dfs.rs</code> と同じ手順を、このページの中で動かしています。探索ノード数は、<code>cargo run --release -- n</code> が表示する nodes と一致します。</p>
     <div class="demo">
       <div class="controls">
         <label for="sel-n">盤面 n
@@ -275,7 +278,7 @@ ul.plain, ol.plain { margin: 0; padding-left: 1.4em; display: grid; gap: 6px; }
         </label>
         <button id="btn-step" class="primary">1 手進む</button>
         <button id="btn-play">自動再生</button>
-        <button id="btn-next">次の改善まで</button>
+        <button id="btn-next">この予算の結果まで</button>
         <button id="btn-reset">最初から</button>
         <label for="speed">速さ <input id="speed" type="range" min="0" max="4" value="1"></label>
       </div>
@@ -287,11 +290,11 @@ ul.plain, ol.plain { margin: 0; padding-left: 1.4em; display: grid; gap: 6px; }
             <div class="stat"><span class="k">探索ノード数</span><span class="v" id="st-nodes">0</span></div>
             <div class="stat"><span class="k">手数</span><span class="v" id="st-steps">0</span><span class="k" id="st-total"></span></div>
             <div class="stat"><span class="k">いまの塗り数</span><span class="v" id="st-painted">0</span></div>
-            <div class="stat"><span class="k">暫定最良</span><span class="v" id="st-best">–</span></div>
+            <div class="stat"><span class="k">いまの予算</span><span class="v" id="st-best">–</span></div>
           </div>
           <div class="best-box">
-            <span class="k">暫定最良の盤面</span>
-            <svg id="best-svg" role="img" aria-label="暫定最良の盤面"></svg>
+            <span class="k">見つかった解</span>
+            <svg id="best-svg" role="img" aria-label="見つかった解"></svg>
           </div>
           <div class="legend">
             <span><i class="sw" style="background:var(--accent);border-color:var(--accent)"></i>塗ったマス</span>
@@ -308,18 +311,18 @@ ul.plain, ol.plain { margin: 0; padding-left: 1.4em; display: grid; gap: 6px; }
   <section>
     <div class="eyebrow">実行結果（dfs.rs）</div>
     <h2>DFS の計測</h2>
-    <p>リリースビルド（<code>cargo run --release -- 3 --to 9 --algo dfs</code>）での計測値です。探索ノード数はデモの「探索ノード数」と同じ数え方（<code>search</code> を呼んだ回数）です。</p>
+    <p>リリースビルド（<code>cargo run --release -- 3 --to 15</code>）での計測値です。探索ノード数はデモの「探索ノード数」と同じ数え方です。</p>
     <div class="table-wrap">
       <table>
         <thead><tr><th>n</th><th class="num">結果</th><th class="num">OEIS</th><th class="num">探索ノード数</th><th class="num">時間</th></tr></thead>
         <tbody id="results"></tbody>
       </table>
     </div>
-    <p>n が 1 増えるごとにノード数も時間も約 50 倍になっています。n = 10 は 2 分以内に終わりませんでした。</p>
+    <p>時間の大半は、最初に下界を計算する 0.1 秒ほどで、探索そのものは一瞬です。下界を持たなかった最初の DFS では、n = 9 で探索ノード数が約 17 億、時間が 16 秒かかり、n = 10 は 2 分で終わりませんでした。</p>
   </section>
 
   <section>
-    <div class="eyebrow">DFS が遅い理由</div>
+    <div class="eyebrow">最初の DFS が遅かった理由</div>
     <h2>同じ状態を何度も解いている</h2>
     <p>行 k+1 から下で何ができるかは、行 k−1 と行 k の 2 行だけで決まります。それより上の行は条件の確認が済んでいて、先には「そこまでの塗り数」としてしか影響しません。</p>
     <p>DFS で一意なのは「行 0 から今の行までの経路」です。直前の 2 行が同じで、上だけが違う経路はたくさんあり、その先はまったく同じ探索になります。DFS はそれを毎回やり直していました。</p>
@@ -333,6 +336,7 @@ ul.plain, ol.plain { margin: 0; padding-left: 1.4em; display: grid; gap: 6px; }
       <li>n = 5 で 3 行目まで: DFS の経路 1,045 本に対し、異なる状態は 357 個。</li>
       <li>n = 9 で 6 行目まで: DFS の経路は約 6.7 億本、異なる状態はどの深さでも 8 万個以下。</li>
     </ul>
+    <p class="note">ここから DP に進みましたが、後で分かったことに、一番の原因は下界がなかったことでした。最初の DFS は「ここまでの塗り数 + 次の行の強制マス数」が暫定最良以上かどうかしか見ておらず、残りの行に必要な塗り数を考えていませんでした。下界を入れると、同じ状態に別の経路で来ることもほとんどなくなります（「DFS に戻る」の節）。</p>
   </section>
 
   <section>
@@ -432,7 +436,7 @@ c + anchored[n - 1 - k] &lt;= budget</code></pre>
   <section>
     <div class="eyebrow">デモ（dp.rs）</div>
     <h2>DP の表を 1 行ずつ作る</h2>
-    <p><code>src/dp.rs</code> の判定の DP と同じ手順を、このページの中で動かしています。DFS のデモと違い、1 回のクリックで次の行の表を丸ごと作ります。カード 1 枚が 1 つの状態で、上の段が行 k−1、下の段が行 k、下の数字が行 k までの最小塗り数です。</p>
+    <p><code>src/dp.rs</code> の判定の DP と同じ手順を、このページの中で動かしています。DFS のデモと違い、1 回のクリックで次の行の表を丸ごと作ります。dp.rs と同じく、状態を表に入れる前に次の行の強制マスを求め、行き止まりと予算超過の状態は入れません。カード 1 枚が 1 つの状態で、上の段が行 k−1、下の段が行 k、下の数字が行 k までの最小塗り数です。</p>
     <div class="demo">
       <div class="controls">
         <label for="dp-n">盤面 n
@@ -462,7 +466,6 @@ c + anchored[n - 1 - k] &lt;= budget</code></pre>
       <div class="dp-cond" id="dp-cond"></div>
       <div class="legend">
         <span><i class="sw" style="background:var(--code-bg)"></i>盤の外の行（行 0 の上）</span>
-        <span><i class="sw" style="background:var(--forbid-soft);border-color:var(--forbid)"></i>行 k に条件を満たせないマスがあり、次の行へ進めない</span>
         <span><i class="sw" style="background:var(--accent-soft);border-color:var(--accent)"></i>最後の行で下端につながる（解）</span>
       </div>
       <div class="state-grid" id="dp-states"></div>
@@ -473,29 +476,46 @@ c + anchored[n - 1 - k] &lt;= budget</code></pre>
   <section>
     <div class="eyebrow">実行結果（dp.rs）</div>
     <h2>DP の計測</h2>
-    <p>リリースビルドで、Core i7-12700F、メモリ 32GB での計測です。n = 18, 19 は、表を全部残し、標準のハッシュで、対称性もない最初の DP 版での値です。</p>
+    <p>リリースビルドで、Core i7-12700F、メモリ 32GB、シングルスレッドでの計測です。「先読み」が今の dp.rs の値で、「先読みなし」はその前の版です。</p>
     <div class="table-wrap">
       <table>
-        <thead><tr><th>n</th><th class="num">a(n)</th><th class="num">予算 a(n)−1 の遷移数</th><th class="num">予算 a(n) の状態数の最大</th><th class="num">合計時間</th><th>版</th></tr></thead>
+        <thead><tr><th>n</th><th class="num">a(n)</th><th class="num">予算 a(n) の状態数の最大</th><th class="num">合計時間</th><th>版</th></tr></thead>
         <tbody>
-          <tr><td class="mono">16</td><td class="num">102</td><td class="num">9,815,552</td><td class="num">3,324,051</td><td class="num">0.79 秒</td><td>最新</td></tr>
-          <tr><td class="mono">17</td><td class="num">115</td><td class="num">329,993,824</td><td class="num">54,660,545</td><td class="num">16.3 秒</td><td>最新</td></tr>
-          <tr><td class="mono">18</td><td class="num">128</td><td class="num">701,232,816</td><td class="num">126,622,590</td><td class="num">55.7 秒</td><td>最初の DP</td></tr>
-          <tr><td class="mono">19</td><td class="num">141</td><td class="num">2,649,946,624</td><td class="num">536,865,479</td><td class="num">228 秒</td><td>最初の DP</td></tr>
+          <tr><td class="mono">16</td><td class="num">102</td><td class="num">184,106</td><td class="num">0.48 秒</td><td>先読み</td></tr>
+          <tr><td class="mono">17</td><td class="num">115</td><td class="num">3,488,013</td><td class="num">6.3 秒</td><td>先読み</td></tr>
+          <tr><td class="mono">18</td><td class="num">128</td><td class="num">2,026,563</td><td class="num">7.1 秒</td><td>先読み</td></tr>
+          <tr><td class="mono">19</td><td class="num">141</td><td class="num">6,754,091</td><td class="num">21.5 秒</td><td>先読み</td></tr>
+          <tr><td class="mono">16</td><td class="num">102</td><td class="num">3,324,051</td><td class="num">0.75 秒</td><td>先読みなし</td></tr>
+          <tr><td class="mono">17</td><td class="num">115</td><td class="num">54,660,545</td><td class="num">15.2 秒</td><td>先読みなし</td></tr>
+          <tr><td class="mono">18</td><td class="num">128</td><td class="num">63,314,198</td><td class="num">19.4 秒</td><td>先読みなし</td></tr>
+          <tr><td class="mono">19</td><td class="num">141</td><td class="num">268,439,434</td><td class="num">5,792 秒</td><td>先読みなし</td></tr>
         </tbody>
       </table>
     </div>
-    <h3>メモリの見込み（最新版、32GB）</h3>
-    <p>1 状態あたり約 28 バイト（<code>FxHashMap&lt;u64, u16&gt;</code>）で、隣り合う 2 枚を持つので、一番大きい表の状態数 × 約 45 バイトと見積もっています。n = 20 の数は「予算が 1 増えると状態は約 4 倍」という傾向からの予想です。</p>
-    <div class="table-wrap">
-      <table>
-        <thead><tr><th>n</th><th>証明側（予算 a(n)−1）</th><th>解を見つける側（予算 a(n)）</th></tr></thead>
-        <tbody>
-          <tr><td class="mono">19</td><td>約 2.5GB</td><td>約 12GB</td></tr>
-          <tr><td class="mono">20</td><td>約 11GB（予想）</td><td>約 45GB（予想、入らない）</td></tr>
-        </tbody>
-      </table>
-    </div>
+    <p>先読みなしの n = 19 は、2.7 億状態の表がメモリに収まらず、ページングで遅くなっていました。先読みありでは、n = 19 のピークメモリは 345MB でした。ただし DP は 1 行分の状態を全部持つので、n が 1 増えるごとに必要なメモリが 5〜8 倍になります。</p>
+  </section>
+
+  <section>
+    <div class="eyebrow">先読み</div>
+    <h2>表に入れる前に、次の行の強制マスを見る</h2>
+    <p>行 k+1 の状態 (cur, down) を作った時点で確かめているのは、行 cur の条件だけです。行 down の白マスが条件を満たせるかは、次の行を作るときに初めて分かります。計測すると、表に入れた状態の 8〜9 割が、次の行で行き止まりになる状態でした。</p>
+    <ul class="plain">
+      <li><strong>行き止まりを入れない</strong>: 表に入れる前に <code>forced_below(cur, down)</code> を求め、None なら入れない。</li>
+      <li><strong>強制マスを下界に足す</strong>: 次の行の強制マスは必ず塗るので、「塗り数 + 強制マス数 + その先の行の下界」が予算を超える状態も入れない。</li>
+    </ul>
+    <p>どちらも、次の段階で必ず捨てられる状態を 1 段早く捨てているだけなので、答えは変わりません。</p>
+  </section>
+
+  <section>
+    <div class="eyebrow">DFS に戻る</div>
+    <h2>同じ枝刈りなら、DFS の方が速い</h2>
+    <p>予算、帯の下界、先読み、左右対称を、そのまま DFS に入れたのが今の <code>src/dfs.rs</code> です。状態の表を持たないので、メモリは今の経路の n 行分だけです。n = 15 まで、どれも 0.3 秒以内で終わります。</p>
+    <ul class="plain">
+      <li><strong>解ありの予算で、最初の解が見つかった時点で止まる</strong>: DP は解ありの予算でも全行の表を最後まで作り、そこに時間の大半を使っていました。</li>
+      <li><strong>盤面の復元が要らない</strong>: 今の経路がそのまま解です。</li>
+      <li><strong>同じ状態に来ることが少ない</strong>: 下界と先読みで経路が大きく減るので、DP のように同じ状態をまとめなくても、調べ直しがほとんど起きません。</li>
+    </ul>
+    <p>最初の DFS が遅かったのは、深さ優先という方式のせいではなく、下界がなかったためでした。</p>
   </section>
 
   <section>
@@ -505,20 +525,21 @@ c + anchored[n - 1 - k] &lt;= budget</code></pre>
       <table>
         <thead><tr><th>ファイル</th><th>役割</th></tr></thead>
         <tbody>
-          <tr><td><code>src/dp.rs</code></td><td>予算付きの行単位 DP。<code>strip_min</code> と <code>lower_bounds</code> が帯の下界、<code>forward</code> が表 2 枚の DP、<code>search</code> が予算の判定、<code>reconstruct</code> と <code>pin_far_end</code> が盤面の復元</td></tr>
-          <tr><td><code>src/dfs.rs</code></td><td>最初の行 DFS。<code>forced_below</code>（強制マスの計算）は DP でも使う</td></tr>
+          <tr><td><code>src/dfs.rs</code></td><td>予算付きの行単位 DFS（既定）。<code>admit</code> が進む前の判定、<code>rec</code> が行ごとの再帰</td></tr>
+          <tr><td><code>src/dp.rs</code></td><td>予算付きの行単位 DP。<code>forward</code> が表 2 枚の DP、<code>search</code> が予算の判定、<code>reconstruct</code> と <code>pin_far_end</code> が盤面の復元</td></tr>
+          <tr><td><code>src/bound.rs</code></td><td>帯の下界。<code>strip_min</code> が帯の最小塗り数、<code>lower_bounds</code> が残りの行の下界。DFS と DP の両方で使う</td></tr>
+          <tr><td><code>src/row.rs</code></td><td>行の共通の操作。<code>forced_below</code>（強制マスの計算）、状態のキー、左右反転</td></tr>
           <tr><td><code>src/brute.rs</code></td><td>全 2<sup>n²</sup> 通りを調べる総当たり。答え合わせ用（n ≤ 5 程度）</td></tr>
           <tr><td><code>src/board.rs</code></td><td>盤面 <code>Board</code> と、条件を満たすか確かめる <code>is_valid</code></td></tr>
           <tr><td><code>src/lib.rs</code></td><td>OEIS の既知の値 a(1)〜a(15)</td></tr>
-          <tr><td><code>src/main.rs</code></td><td>コマンドライン（<code>n</code>、<code>--to</code>、<code>--algo dp|dfs|brute</code>、既定は <code>dp</code>）。表示する前に必ず <code>is_valid</code> で確かめる</td></tr>
+          <tr><td><code>src/main.rs</code></td><td>コマンドライン（<code>n</code>、<code>--to</code>、<code>--algo dfs|dp|brute</code>、既定は <code>dfs</code>）。表示する前に必ず <code>is_valid</code> で確かめる</td></tr>
         </tbody>
       </table>
     </div>
     <h3>まだやっていないこと</h3>
     <ol class="plain">
       <li><strong>下界をきつくする</strong>: 下界と答えの差は n = 16〜19 で 6〜8。予算 1 の差で状態は約 4 倍変わるので、下界を 1 詰めるのは n を 1 小さくするのとほぼ同じ効果。帯を高くする、今の行に応じた下界にする、など</li>
-      <li><strong>状態を詰めて持つ</strong>: 今の行ごとにグループで処理し、キーと塗り数を u64 1 個に詰めた配列で持つ（1 状態 8 バイト）</li>
-      <li><strong>解を見つける側を軽くする</strong>: 上の 2 行を最適解によくある形に固定して DP を回せば、一番重い予算 a(n) の判定がいらなくなる</li>
+      <li><strong>DFS にキャッシュを付ける</strong>: 「この状態は残り予算 A 以下では解けない」を固定サイズの表に覚え、同じ状態に来たら調べ直さない。メモリを固定したまま、大きい n での調べ直しを減らせる</li>
       <li><strong>一般の n での証明</strong>: 差が同じ値を 3 回ずつ繰り返す規則と、斜めの縞の解の形から、上限と下限を理論で示す</li>
     </ol>
   </section>
@@ -654,72 +675,151 @@ c + anchored[n - 1 - k] &lt;= budget</code></pre>
     return ~cur & full & ~(ones | twos);
   }
 
+  /* ---- bound.rs と row.rs と同じ計算（DFS と DP のデモで使う） ---- */
+  const INF = 1e9;
+
+  // bound.rs の column_requirements / strip_min / lower_bounds と同じ計算
+  function columnReq(h, l, c, topFree, botFree) {
+    let must1 = 0, must0 = 0;
+    for (let i = 0; i < h; i++) {
+      if ((c >> i) & 1) continue;
+      let s = (l >> i) & 1, f = 0;
+      if (i > 0) s += (c >> (i - 1)) & 1; else if (topFree) f++;
+      if (i + 1 < h) s += (c >> (i + 1)) & 1; else if (botFree) f++;
+      const ok = x => s + x <= 2 && 2 - s - x <= f;
+      const o0 = ok(0), o1 = ok(1);
+      if (!o0 && !o1) return null;
+      if (!o0) must1 |= 1 << i; else if (!o1) must0 |= 1 << i;
+    }
+    return [must1, must0];
+  }
+  function stripMin(n, h, topFree, botFree) {
+    const size = 1 << h, mask = size - 1;
+    let cur = new Array(size * size).fill(INF);
+    for (let c = 0; c < size; c++) cur[c] = popcount(c);
+    for (let col = 0; col < n; col++) {
+      const last = col + 1 === n;
+      const next = last ? null : new Array(size * size).fill(INF);
+      let best = INF;
+      for (let l = 0; l < size; l++) for (let c = 0; c < size; c++) {
+        const v = cur[l * size + c];
+        if (v === INF) continue;
+        const req = columnReq(h, l, c, topFree, botFree);
+        if (!req) continue;
+        const [must1, must0] = req;
+        if (last) { if (must1 === 0) best = Math.min(best, v); continue; }
+        const free = mask & ~must1 & ~must0;
+        let sub = free;
+        for (;;) {
+          const r = must1 | sub, w = v + popcount(r), k = c * size + r;
+          if (w < next[k]) next[k] = w;
+          if (sub === 0) break;
+          sub = (sub - 1) & free;
+        }
+      }
+      if (last) return best;
+      cur = next;
+    }
+  }
+  const LB = {};
+  function lowerBounds(n) {
+    if (LB[n]) return LB[n];
+    const maxH = Math.min(9, n);
+    const strip = (h, botFree) => h === 0 ? 0 : stripMin(n, h, true, botFree);
+    const freeStrip = [], bottomStrip = [];
+    for (let h = 0; h <= maxH; h++) { freeStrip.push(strip(h, true)); bottomStrip.push(strip(h, false)); }
+    const free = new Array(n + 1).fill(0), anchored = new Array(n + 1).fill(0);
+    for (let j = 1; j <= n; j++) {
+      let m = 0;
+      for (let t = 1; t <= Math.min(maxH, j); t++) m = Math.max(m, freeStrip[t] + free[j - t]);
+      free[j] = m;
+    }
+    for (let j = 1; j <= n; j++) {
+      let m = 0;
+      for (let h = 1; h <= Math.min(maxH, j); h++) m = Math.max(m, bottomStrip[h] + free[j - h]);
+      anchored[j] = m;
+    }
+    return (LB[n] = anchored);
+  }
+
+  const mirrorRow = (n, row) => { let r = 0; for (let i = 0; i < n; i++) if ((row >> i) & 1) r |= 1 << (n - 1 - i); return r; };
   /* ---- デモ: dfs.rs と同じ探索を 1 手ずつ ---- */
+  // nodes は dfs.rs と同じく、枝刈りを通って行に進んだ回数（rec を呼んだ回数）を全予算で合計したもの
   function* searchSteps(n) {
-    const full = (1 << n) - 1;
+    const full = (1 << n) - 1, lb = lowerBounds(n);
     const rows = [];
-    const ub = n * (Math.floor(n / 2) + 1);   // 列を 1 本おきに塗る自明な解
-    const st = { nodes: 0, best: ub + 1, bestRows: [] };
+    const st = { nodes: 0, budget: lb[n], solution: [] };
     const S = (kind, msg, extra) => Object.assign({
       kind, msg, rows: rows.slice(), nodes: st.nodes,
-      best: st.best <= ub ? st.best : null, bestRows: st.bestRows.slice(),
+      best: st.budget, bestRows: st.solution.slice(),
       r: rows.length - 1, forced: 0, free: 0, dead: 0, painted: 0,
     }, extra || {});
+    const show = m => { let t = ""; for (let c = 0; c < n; c++) t += bit(m, c) ? "#" : "."; return t; };
 
-    function* search(r, paintedCount) {
-      st.nodes++;
-      const up = r === 0 ? 0 : rows[r - 1];
-      const cur = rows[r];
+    // dfs.rs の admit と同じ判定。進めないときは理由も返す
+    function check(k, up, cur, c) {
       const forced = forcedBelow(n, up, cur);
-      if (forced === null) {
-        yield S("cut", `行 ${r} に、上・左・右の塗りが 0 個か 3 個の白マスがある。下 1 マスでは 2 個にできないので行き止まり。`,
-          { r, dead: deadCells(n, up, cur), painted: paintedCount });
-        return;
+      if (forced === null) return { ok: false, why: "dead", forced: 0 };
+      const rest = n - 1 - k;
+      if (rest === 0) {
+        if (forced !== 0) return { ok: false, why: "outside", forced };
+        return { ok: c <= st.budget, why: "over", forced: 0, need: c };
       }
-      if (r + 1 === n) {
-        if (forced !== 0) {
-          yield S("cut", `最後の行の白マスが、盤の外に塗りを必要としている。行き止まり。`,
-            { r, forced, painted: paintedCount, outside: true });
-        } else if (paintedCount < st.best) {
-          st.best = paintedCount;
-          st.bestRows = rows.slice();
-          yield S("best", `全マスが条件を満たした。塗り ${paintedCount} 個で暫定最良を更新。以後、${paintedCount} 個以上になる枝は切る。`,
-            { r, painted: paintedCount });
-        }
-        return;
+      const need = c + Math.max(lb[rest], popcount(forced) + lb[rest - 1]);
+      return { ok: need <= st.budget, why: "over", forced, need };
+    }
+    const cut = (k, up, cur, c, ch) => S("cut",
+      ch.why === "dead" ? `行 ${k} に、上・左・右の塗りが 0 個か 3 個の白マスがある。下 1 マスでは 2 個にできないので、この行には進まない。` : ch.why === "outside" ? `最後の行の白マスが、盤の外に塗りを必要としている。この行には進まない。` : `行 ${k} までの塗り数 ${c} 個に、残りの行に最低限必要な塗り数を足すと ${ch.need} 個になり、予算 ${st.budget} を超える。この行には進まない。`,
+      { r: k, painted: c, forced: ch.forced, outside: ch.why === "outside", dead: ch.why === "dead" ? deadCells(n, up, cur) : 0 });
+
+    function* rec(k, up, cur, c) {
+      st.nodes++;
+      if (k + 1 === n) {
+        st.solution = rows.slice();
+        yield S("best", `最後の行まで条件を満たした。予算 ${st.budget} で塗れた。`, { r: k, painted: c });
+        return true;
       }
-      const base = paintedCount + popcount(forced);
-      if (base >= st.best) {
-        yield S("cut", `行 ${r + 1} の強制マスだけで塗りが ${base} 個になり、暫定最良 ${st.best} 以上。この先は調べない。`,
-          { r, forced, painted: paintedCount });
-        return;
-      }
-      yield S("forced", `行 ${r} を判定。行 ${r + 1} は強制マス ${popcount(forced)} 個が決まり、自由マスは ${popcount(cur)} 個（${1 << popcount(cur)} 通り）。`,
-        { r, forced, free: cur, painted: paintedCount });
+      const forced = forcedBelow(n, up, cur);
+      yield S("forced", `行 ${k} を判定。行 ${k + 1} は強制マス ${popcount(forced)} 個が決まり、自由マスは ${popcount(cur)} 個（${1 << popcount(cur)} 通り）。`, { r: k, forced, free: cur, painted: c });
       let sub = cur;
       for (;;) {
-        const down = forced | sub;
-        const next = base + popcount(sub);
-        if (next < st.best) {
-          rows.push(down);
-          yield S("choose", `行 ${r + 1} を決めた（塗り ${popcount(down)} 個、合計 ${next} 個）。`, { r: r + 1, painted: next });
-          yield* search(r + 1, next);
-          rows.pop();
+        const down = forced | sub, w = c + popcount(down);
+        const ch = check(k + 1, cur, down, w);
+        rows.push(down);
+        if (ch.ok) {
+          yield S("choose", `行 ${k + 1} を ${show(down)} に決めて進む（塗り ${popcount(down)} 個、合計 ${w} 個）。`, { r: k + 1, painted: w });
+          if (yield* rec(k + 1, cur, down, w)) return true;
+        } else {
+          yield cut(k + 1, cur, down, w, ch);
         }
+        rows.pop();
         if (sub === 0) break;
         sub = (sub - 1) & cur;
       }
+      return false;
     }
 
-    for (let first = 0; first <= full; first++) {
-      const count = popcount(first);
-      if (count >= st.best) continue;
-      rows.push(first);
-      yield S("choose", `1 行目を ${first.toString(2).padStart(n, "0").split("").reverse().join("")} にする（塗り ${count} 個）。`, { r: 0, painted: count });
-      yield* search(0, count);
-      rows.pop();
+    for (;;) {
+      yield S("budget", `予算 ${st.budget} 個で塗れるかを探す。${st.budget === lb[n] ? `下界は ${lb[n]} 個なので、ここから始める。` : ""}`, { r: -1 });
+      for (let first = 0; first <= full; first++) {
+        // 解を左右反転しても解なので、行 0 が左右反転以下のものだけ調べる
+        if (first > mirrorRow(n, first)) continue;
+        const c = popcount(first), ch = check(0, 0, first, c);
+        rows.push(first);
+        if (ch.ok) {
+          yield S("choose", `行 0 を ${show(first)} に決めて進む（塗り ${c} 個）。`, { r: 0, painted: c });
+          if (yield* rec(0, 0, first, c)) {
+            yield S("done", `探索が終わりました。a(${n}) = ${st.budget} です。探索ノード数 ${st.nodes} は、cargo run --release -- ${n} の nodes と同じです。`, { r: -1 });
+            return;
+          }
+        } else {
+          yield cut(0, 0, first, c, ch);
+        }
+        rows.pop();
+      }
+      yield S("infeasible", `予算 ${st.budget} では、どの行 0 からも最後の行まで進めなかった。${st.budget} 個では塗れないので、予算を 1 上げる。`, { r: -1 });
+      st.budget++;
     }
-    yield S("done", `探索が終わりました。a(${n}) = ${st.best} です。`, { r: -1 });
   }
 
   const svg = el("demo-svg"), bestSvg = el("best-svg"), elMsg = el("msg");
@@ -767,7 +867,7 @@ c + anchored[n - 1 - k] &lt;= budget</code></pre>
     el("st-best").textContent = snap && snap.best !== null ? snap.best : "–";
     if (snap) {
       elMsg.textContent = snap.msg;
-      elMsg.className = "msg" + (snap.kind === "best" || snap.kind === "done" ? " best" : snap.kind === "cut" ? " cut" : "");
+      elMsg.className = "msg" + (snap.kind === "best" || snap.kind === "done" ? " best" : (snap.kind === "cut" || snap.kind === "infeasible") ? " cut" : "");
     }
   }
 
@@ -799,7 +899,7 @@ c + anchored[n - 1 - k] &lt;= budget</code></pre>
     stop();
     const [ms, per] = SPEEDS[+el("speed").value];
     timer = setInterval(() => {
-      for (let i = 0; i < per; i++) { const s = advance(); if (!s) break; if (s.kind === "best" && per > 1) break; }
+      for (let i = 0; i < per; i++) { const s = advance(); if (!s) break; if ((s.kind === "best" || s.kind === "infeasible") && per > 1) break; }
       render();
     }, ms);
     el("btn-play").textContent = "停止";
@@ -813,7 +913,7 @@ c + anchored[n - 1 - k] &lt;= budget</code></pre>
   el("btn-play").addEventListener("click", () => { if (timer) stop(); else if (!finished) play(); });
   el("btn-next").addEventListener("click", () => {
     stop();
-    for (let i = 0; i < 5000000; i++) { const s = advance(); if (!s || s.kind === "best" || s.kind === "done") break; }
+    for (let i = 0; i < 5000000; i++) { const s = advance(); if (!s || s.kind === "best" || s.kind === "done" || s.kind === "infeasible") break; }
     render();
   });
   el("btn-reset").addEventListener("click", reset);
@@ -824,73 +924,6 @@ c + anchored[n - 1 - k] &lt;= budget</code></pre>
   /* ---- デモ: dp.rs と同じ判定の DP を 1 行ずつ ---- */
   (function () {
     const KNOWN = { 4: 8, 5: 11, 6: 17 };
-    const INF = 1e9;
-
-    // dp.rs の column_requirements / strip_min / lower_bounds と同じ計算
-    function columnReq(h, l, c, topFree, botFree) {
-      let must1 = 0, must0 = 0;
-      for (let i = 0; i < h; i++) {
-        if ((c >> i) & 1) continue;
-        let s = (l >> i) & 1, f = 0;
-        if (i > 0) s += (c >> (i - 1)) & 1; else if (topFree) f++;
-        if (i + 1 < h) s += (c >> (i + 1)) & 1; else if (botFree) f++;
-        const ok = x => s + x <= 2 && 2 - s - x <= f;
-        const o0 = ok(0), o1 = ok(1);
-        if (!o0 && !o1) return null;
-        if (!o0) must1 |= 1 << i; else if (!o1) must0 |= 1 << i;
-      }
-      return [must1, must0];
-    }
-    function stripMin(n, h, topFree, botFree) {
-      const size = 1 << h, mask = size - 1;
-      let cur = new Array(size * size).fill(INF);
-      for (let c = 0; c < size; c++) cur[c] = popcount(c);
-      for (let col = 0; col < n; col++) {
-        const last = col + 1 === n;
-        const next = last ? null : new Array(size * size).fill(INF);
-        let best = INF;
-        for (let l = 0; l < size; l++) for (let c = 0; c < size; c++) {
-          const v = cur[l * size + c];
-          if (v === INF) continue;
-          const req = columnReq(h, l, c, topFree, botFree);
-          if (!req) continue;
-          const [must1, must0] = req;
-          if (last) { if (must1 === 0) best = Math.min(best, v); continue; }
-          const free = mask & ~must1 & ~must0;
-          let sub = free;
-          for (;;) {
-            const r = must1 | sub, w = v + popcount(r), k = c * size + r;
-            if (w < next[k]) next[k] = w;
-            if (sub === 0) break;
-            sub = (sub - 1) & free;
-          }
-        }
-        if (last) return best;
-        cur = next;
-      }
-    }
-    const LB = {};
-    function lowerBounds(n) {
-      if (LB[n]) return LB[n];
-      const maxH = Math.min(9, n);
-      const strip = (h, botFree) => h === 0 ? 0 : stripMin(n, h, true, botFree);
-      const freeStrip = [], bottomStrip = [];
-      for (let h = 0; h <= maxH; h++) { freeStrip.push(strip(h, true)); bottomStrip.push(strip(h, false)); }
-      const free = new Array(n + 1).fill(0), anchored = new Array(n + 1).fill(0);
-      for (let j = 1; j <= n; j++) {
-        let m = 0;
-        for (let t = 1; t <= Math.min(maxH, j); t++) m = Math.max(m, freeStrip[t] + free[j - t]);
-        free[j] = m;
-      }
-      for (let j = 1; j <= n; j++) {
-        let m = 0;
-        for (let h = 1; h <= Math.min(maxH, j); h++) m = Math.max(m, bottomStrip[h] + free[j - h]);
-        anchored[j] = m;
-      }
-      return (LB[n] = anchored);
-    }
-
-    const mirrorRow = (n, row) => { let r = 0; for (let i = 0; i < n; i++) if ((row >> i) & 1) r |= 1 << (n - 1 - i); return r; };
     const rawKey = (up, cur) => up * 64 + cur;
 
     const ui = id => document.getElementById(id);
@@ -905,6 +938,17 @@ c + anchored[n - 1 - k] &lt;= budget</code></pre>
     }
 
     // 状態を表に入れる。同じ状態なら塗り数の小さい方を残す
+    // dp.rs の forward と同じ 1 行先読み。表に入れる前に次の行の強制マスを求める。
+    // "dead": 行 cur の条件を満たせない（最後の行なら盤の外に塗りが要る）、"over": 予算超過、"ok": 入れる
+    function admit(k, up, cur, c) {
+      const { n, lb, budget } = st;
+      const f = forcedBelow(n, up, cur);
+      if (f === null) return "dead";
+      const rest = n - 1 - k;
+      if (rest === 0) return f !== 0 ? "dead" : c <= budget ? "ok" : "over";
+      return c + Math.max(lb[rest], popcount(f) + lb[rest - 1]) <= budget ? "ok" : "over";
+    }
+
     function insert(next, seen, up, cur, w) {
       const raw = rawKey(up, cur);
       const key = st.sym ? Math.min(raw, rawKey(mirrorRow(st.n, up), mirrorRow(st.n, cur))) : raw;
@@ -924,10 +968,11 @@ c + anchored[n - 1 - k] &lt;= budget</code></pre>
       const seen = new Set();
       for (let row = 0; row <= full; row++) {
         const c = popcount(row);
-        if (c + lb[n - 1] > budget) st.over++; else insert(st.table, seen, 0, row, c);
+        const r = admit(0, 0, row, c);
+        if (r === "dead") st.dead++; else if (r === "over") st.over++; else insert(st.table, seen, 0, row, c);
       }
       msg.className = "msg";
-      msg.textContent = `行 0 の候補 ${full + 1} 通りのうち、予算を超える ${st.over} 個を捨て、${st.table.size} 状態を表に入れた。「次の行へ」で行 1 の表を作る。`;
+      msg.textContent = `行 0 の候補 ${full + 1} 通りのうち、次の行で行き止まりになる ${st.dead} 個と予算超過の ${st.over} 個を捨て、${st.table.size} 状態を表に入れた。「次の行へ」で行 1 の表を作る。`;
       render();
     }
 
@@ -959,13 +1004,14 @@ c + anchored[n - 1 - k] &lt;= budget</code></pre>
       const next = new Map(), seen = new Set();
       st.trans = st.over = st.dup = st.mirror = st.dead = 0;
       for (const e of st.table.values()) {
+        // 表に入れた状態なので、強制マスは必ず求まる
         const f = forcedBelow(n, e.up, e.cur);
-        if (f === null) { st.dead++; continue; }
         let sub = e.cur;
         for (;;) {
           const down = f | sub, w = e.c + popcount(down);
           st.trans++;
-          if (w + lb[n - 2 - st.k] > budget) st.over++; else insert(next, seen, e.cur, down, w);
+          const r = admit(st.k + 1, e.cur, down, w);
+          if (r === "dead") st.dead++; else if (r === "over") st.over++; else insert(next, seen, e.cur, down, w);
           if (sub === 0) break;
           sub = (sub - 1) & e.cur;
         }
@@ -973,7 +1019,7 @@ c + anchored[n - 1 - k] &lt;= budget</code></pre>
       st.k++;
       st.table = next;
       msg.className = "msg";
-      msg.textContent = `行 ${st.k} の表を作った。行き止まりの状態 ${st.dead} 個を飛ばし、${st.trans} 通りの遷移のうち予算超過 ${st.over} 個を捨て、` +
+      msg.textContent = `行 ${st.k} の表を作った。${st.trans} 通りの遷移のうち、次の行で行き止まりになる ${st.dead} 個と予算超過の ${st.over} 個を捨て、` +
         `重なった状態をまとめて ${next.size} 状態が残った。` + (st.k === n - 1 ? " これが最後の行。もう一度押すと下端につながるかを判定する。" : "");
       render();
     }
@@ -1038,9 +1084,11 @@ c + anchored[n - 1 - k] &lt;= budget</code></pre>
   })();
 
   /* ---- 結果表 ---- */
-  const RES = [[3, 5, 5, 34, "5.2 µs"], [4, 8, 8, 258, "4.2 µs"], [5, 11, 11, 1969, "24 µs"],
-               [6, 17, 17, 54441, "0.49 ms"], [7, 21, 21, 630496, "5.8 ms"], [8, 28, 28, 31878503, "0.30 s"],
-               [9, 35, 35, 1730460358, "16.0 s"], [10, null, 42, null, "120 s 超"]];
+  const RES = [[3, 5, 5, 4, "92 µs"], [4, 8, 8, 5, "53 µs"], [5, 11, 11, 9, "0.17 ms"],
+               [6, 17, 17, 80, "0.92 ms"], [7, 21, 21, 15, "4.1 ms"], [8, 28, 28, 88, "20 ms"],
+               [9, 35, 35, 335, "95 ms"], [10, 42, 42, 421, "0.11 s"], [11, 51, 51, 3386, "0.13 s"],
+               [12, 60, 60, 10218, "0.14 s"], [13, 69, 69, 18431, "0.16 s"], [14, 80, 80, 197804, "0.21 s"],
+               [15, 91, 91, 466183, "0.29 s"]];
   el("results").innerHTML = RES.map(([n, got, oeis, nodes, t]) =>
     `<tr><td class="mono">${n}</td><td class="num">${got ?? "–"}</td><td class="num">${oeis}</td>` +
     `<td class="num">${nodes === null ? "–" : nodes.toLocaleString()}</td><td class="num">${t}</td></tr>`
