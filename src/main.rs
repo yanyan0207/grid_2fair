@@ -45,7 +45,7 @@ struct Args {
     #[arg(long)]
     to: Option<usize>,
     /// Search algorithm
-    #[arg(long, value_enum, default_value_t = Algo::Dp)]
+    #[arg(long, value_enum, default_value_t = Algo::Dfs)]
     algo: Algo,
 }
 
