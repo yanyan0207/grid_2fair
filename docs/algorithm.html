@@ -151,8 +151,8 @@ ul.plain, ol.plain { margin: 0; padding-left: 1.4em; display: grid; gap: 6px; }
     <p class="axis-note">English | <a href="algorithm.ja.html">日本語</a></p>
     <div class="hero">
       <div style="display:grid;gap:12px">
-        <h1>Computing a(16)–a(19) with a row-by-row search</h1>
-        <p class="lead">Paint some cells of an n×n grid so that every unpainted cell is orthogonally adjacent to exactly two painted cells. a(n) is the minimum number of painted cells. Starting from a row-by-row DFS, we moved to a row-by-row DP that prunes with a budget and a lower bound (<code>src/dp.rs</code>) and computed a(16)–a(19), beyond the a(15) listed in the OEIS. Finally, putting the same lower bound into the DFS (<code>src/dfs.rs</code>) turned out to be faster than the DP, so the DFS is now the default. This page explains how, step by step.</p>
+        <h1>Computing a(16)–a(22) with a row-by-row search</h1>
+        <p class="lead">Paint some cells of an n×n grid so that every unpainted cell is orthogonally adjacent to exactly two painted cells. a(n) is the minimum number of painted cells. Starting from a row-by-row DFS, we moved to a row-by-row DP that prunes with a budget and a lower bound (<code>src/dp.rs</code>) and computed a(16)–a(19), beyond the a(15) listed in the OEIS. Putting the same lower bound into the DFS (<code>src/dfs.rs</code>) made it faster than the DP, and building a striped solution first and then proving it minimal (<code>src/stripes_dfs.rs</code>) took us to a(22). That method is now the default. This page explains how, step by step.</p>
       </div>
       <figure>
         <svg id="hero-svg" role="img" aria-label="A minimum solution for n=16"></svg>
@@ -163,11 +163,11 @@ ul.plain, ol.plain { margin: 0; padding-left: 1.4em; display: grid; gap: 6px; }
 
   <section>
     <div class="eyebrow">Results</div>
-    <h2>a(16) = 102, a(17) = 115, a(18) = 128, a(19) = 141</h2>
-    <p>When this page was written, the OEIS listed terms up to a(15) (a(12)–a(15) were computed by Bert Dobbelaere in 2021). The same program reproduces a(12)–a(15) and finds the next four terms. Each value is backed by two checks:</p>
+    <h2>a(16) = 102, a(17) = 115, a(18) = 128, a(19) = 141, a(20) = 156, a(21) = 171, a(22) = 186</h2>
+    <p>When this page was written, the OEIS listed terms up to a(15) (a(12)–a(15) were computed by Bert Dobbelaere in 2021). The same program reproduces a(12)–a(15) and finds the next seven terms. Each value is backed by two checks:</p>
     <ul class="plain">
-      <li><strong>a(n) − 1 cells are not enough</strong>: for every budget from the lower bound up to a(n) − 1, the DP reports "infeasible".</li>
-      <li><strong>a(n) cells suffice</strong>: the board is reconstructed and every cell is checked with <code>Board::is_valid</code>.</li>
+      <li><strong>a(n) − 1 cells are not enough</strong>: an exhaustive search with budget a(n) − 1 finds no solution. a(16)–a(22) were each obtained by at least two of the DP, the DFS and the striped construction.</li>
+      <li><strong>a(n) cells suffice</strong>: every cell of the solution board is checked with <code>Board::is_valid</code>.</li>
     </ul>
     <div class="table-wrap">
       <table>
@@ -181,11 +181,31 @@ ul.plain, ol.plain { margin: 0; padding-left: 1.4em; display: grid; gap: 6px; }
           <tr><td class="mono">17</td><td class="num new">115</td><td class="num">13</td><td>this program</td></tr>
           <tr><td class="mono">18</td><td class="num new">128</td><td class="num">13</td><td>this program</td></tr>
           <tr><td class="mono">19</td><td class="num new">141</td><td class="num">13</td><td>this program</td></tr>
-          <tr><td class="mono">20</td><td class="num">≥ 156</td><td class="num">–</td><td>this program (infeasible up to budget 155; unfinished)</td></tr>
+          <tr><td class="mono">20</td><td class="num new">156</td><td class="num">15</td><td>this program</td></tr>
+          <tr><td class="mono">21</td><td class="num new">171</td><td class="num">15</td><td>this program</td></tr>
+          <tr><td class="mono">22</td><td class="num new">186</td><td class="num">15</td><td>this program</td></tr>
         </tbody>
       </table>
     </div>
-    <p class="note">From n = 8 the differences are 7, 7, 7, 9, 9, 9, 11, 11, 11, 13, 13, 13: each value repeats three times. If the pattern continues, a(20) = 156, but this has not been verified.</p>
+    <p class="note">The patterns these values suggest are collected in the next section, "Conjectures".</p>
+  </section>
+
+  <section>
+    <div class="eyebrow">Conjectures</div>
+    <h2>Two conjectures: a formula and the shape of solutions</h2>
+    <p>The computed values and solutions suggest two conjectures. Neither is proven.</p>
+    <h3>Conjecture 1 (formula)</h3>
+<pre><code>a(n) = ⌈(n+2)² / 3⌉ − 6    (n ≥ 7)</code></pre>
+    <ul class="plain">
+      <li><strong>Evidence</strong>: it matches all 16 values for n = 7–22. Equivalently, from n = 8 on the differences are 7, 7, 7, 9, 9, 9, 11, 11, 11, 13, 13, 13, 15, 15, 15: each value repeats three times.</li>
+      <li><strong>Why n²/3</strong>: each unpainted cell touches exactly 2 painted cells and each painted cell touches at most 4 cells, so at least a third of the cells must be painted. The (n+2)² form and the −6 presumably come from the edges.</li>
+    </ul>
+    <h3>Conjecture 2 (shape of solutions)</h3>
+    <p>For every n ≥ 6 there is an optimal solution in which every row, apart from 2 rows at the top and bottom and 2 columns at the left and right, is a diagonal stripe of period 3 (only columns c ≡ s mod 3 painted, with s depending on the row). The n = 16 figure at the top is an example.</p>
+    <ul class="plain">
+      <li><strong>Evidence</strong>: for n = 6–22, the optimal solution found by the DFS has this shape. This shows such a solution exists for those n; it does not show that every optimal solution is striped.</li>
+      <li><strong>Use</strong>: the default algorithm is designed around this conjecture (see "Build from stripes").</li>
+    </ul>
   </section>
 
   <section>
@@ -197,7 +217,9 @@ ul.plain, ol.plain { margin: 0; padding-left: 1.4em; display: grid; gap: 6px; }
       <li><strong>Budget and lower bound</strong>: decide "can it be done within the budget?" and prune with the minimum number of cells the remaining rows need. This brought a(15) down to a few seconds.</li>
       <li><strong>Less memory</strong>: keep only two tables. Reconstruct the board with DP passes in alternating directions. Merge left-right mirror states to halve the table.</li>
       <li><strong>Lookahead</strong>: compute the forced cells of the next row before storing a state, and drop dead ends and over-budget states. 80–90% of the table had been states that die at the next row.</li>
+      <li><strong>Drop the row above</strong>: change the DP state from (row above, current row) to (current row, forced cells below it). Different rows above with the same forced cells lead to the same search.</li>
       <li><strong>Back to DFS</strong>: putting the budget, the lower bound, the lookahead and the symmetry into the DFS as is made it faster than the DP, with memory for just the n rows of the current path.</li>
+      <li><strong>Build from stripes, then prove</strong>: the interior of optimal solutions is a diagonal stripe pattern of period 3. Build a solution among striped rows first, then prove it minimal by searching every board with one cell fewer. n = 22 went from 552 s to 164 s.</li>
     </ol>
   </section>
 
@@ -342,7 +364,7 @@ painted 7    painted 8    painted 9    painted 7</code></pre>
   <section>
     <div class="eyebrow">DP</div>
     <h2>Use the last two rows as the state and advance row by row, breadth-first</h2>
-    <p>The state is (row above, current row). For row k, a table maps each reachable state to the minimum number of cells painted so far. The table for row k+1 is built from the table for row k using the forced cells and subsets of the free cells. When the same state is produced more than once, only the smaller count is kept.</p>
+    <p>In the first version the state was (row above, current row), and for row k a table mapped each reachable state to the minimum number of cells painted so far. The current dp.rs remembers the forced cells below instead of the row above (see "Merging by forced cells"). The table for row k+1 is built from the table for row k using the forced cells and subsets of the free cells. When the same state is produced more than once, only the smaller count is kept.</p>
     <p>The next table depends only on the current one, so two tables, "current row" and "next row", are enough. The DFS remembers only the current path and uses almost no memory; the DP holds every state of a row but removes all duplication.</p>
   </section>
 
@@ -393,7 +415,7 @@ c + anchored[n - 1 - k] &lt;= budget</code></pre>
   <section>
     <div class="eyebrow">Reconstructing the board</div>
     <h2>Repeat the DP in alternating directions</h2>
-    <p>With only two tables, the search ends knowing just the minimum and the last two rows. Everything above has been forgotten.</p>
+    <p>With only two tables, the search ends knowing just the minimum and the final state. Everything above has been forgotten. The steps below are those of the first version. The current dp.rs keeps no row above in its states, so it starts from the last row alone and fixes one edge row per DP pass.</p>
     <ol class="plain">
       <li>Start from the two known bottom rows and run the DP upside down. At the end, the top two rows are fixed.</li>
       <li>Start from the known top rows and fix the two rows that connect to the known bottom rows.</li>
@@ -418,8 +440,8 @@ c + anchored[n - 1 - k] &lt;= budget</code></pre>
   <section>
     <div class="eyebrow">Left-right symmetry</div>
     <h2>Merge states that are mirror images</h2>
-    <p>A state (row above, current row) and the state with both rows mirrored lead to mirror-image searches with the same minimum. Each new state is compared with its mirror and the smaller one is used as the key. The lower bound is symmetric too, so pruning is unaffected.</p>
-    <p>If the final state of the search is the mirrored one, mirroring the solution gives a solution ending in those two rows, so it can be used as the starting point of the reconstruction as is. The reconstruction DP has both ends fixed and is not symmetric, so it does not merge.</p>
+    <p>A state and its mirror image lead to mirror-image searches with the same minimum. Each new state is compared with its mirror and the smaller one is used as the key. The lower bound is symmetric too, so pruning is unaffected.</p>
+    <p>If the final state of the search is the mirrored one, mirroring the solution gives a solution ending in that state, so it can be used as the starting point of the reconstruction as is. The reconstruction DP has both ends fixed and is not symmetric, so it does not merge.</p>
     <div class="table-wrap">
       <table>
         <thead><tr><th>n = 17</th><th class="num">No symmetry</th><th class="num">Left-right merge</th></tr></thead>
@@ -436,7 +458,7 @@ c + anchored[n - 1 - k] &lt;= budget</code></pre>
   <section>
     <div class="eyebrow">Demo (dp.rs)</div>
     <h2>Build the DP table one row at a time</h2>
-    <p>This runs the same procedure as the search DP in <code>src/dp.rs</code> inside the page. Unlike the DFS demo, one click builds the whole table for the next row. As in dp.rs, the forced cells of the next row are computed before a state is stored, and dead ends and over-budget states are not stored. Each card is one state: the upper strip is row k−1, the lower strip is row k, and the number is the minimum count through row k.</p>
+    <p>This runs the same procedure as the search DP in <code>src/dp.rs</code> inside the page. Unlike the DFS demo, one click builds the whole table for the next row. As in dp.rs, the forced cells of the next row are computed before a state is stored, and dead ends and over-budget states are not stored. Each card is one state (current row, forced cells below it): the upper strip is row k, the lower strip shows the constraints on row k+1, and the number is the minimum count through row k. The row above is not remembered, so paths that differ only in the row above share one card.</p>
     <div class="demo">
       <div class="controls">
         <label for="dp-n">Board n
@@ -465,7 +487,8 @@ c + anchored[n - 1 - k] &lt;= budget</code></pre>
       </div>
       <div class="dp-cond" id="dp-cond"></div>
       <div class="legend">
-        <span><i class="sw" style="background:var(--code-bg)"></i>Row outside the board (above row 0)</span>
+        <span><i class="sw" style="background:var(--force);border-color:var(--force)"></i>Cell that must be painted in row k+1 (forced)</span>
+        <span><i class="sw" style="border:2px dashed var(--accent)"></i>Cell that is free in row k+1</span>
         <span><i class="sw" style="background:var(--accent-soft);border-color:var(--accent)"></i>Closes off at the bottom edge in the last row (a solution)</span>
       </div>
       <div class="state-grid" id="dp-states"></div>
@@ -476,11 +499,12 @@ c + anchored[n - 1 - k] &lt;= budget</code></pre>
   <section>
     <div class="eyebrow">Results (dp.rs)</div>
     <h2>DP measurements</h2>
-    <p>Single-threaded release build on a Core i7-12700F with 32 GB of RAM. "Lookahead" is the current dp.rs; "no lookahead" is the version before it.</p>
+    <p>Single-threaded release build on a Core i7-12700F with 32 GB of RAM. "Current" is the current dp.rs; "lookahead" is the version before it and "no lookahead" the one before that.</p>
     <div class="table-wrap">
       <table>
         <thead><tr><th>n</th><th class="num">a(n)</th><th class="num">Max states at budget a(n)</th><th class="num">Total time</th><th>Version</th></tr></thead>
         <tbody>
+          <tr><td class="mono">19</td><td class="num">141</td><td class="num">3,052,335</td><td class="num">13.2 s</td><td>current (merged by forced cells)</td></tr>
           <tr><td class="mono">16</td><td class="num">102</td><td class="num">184,106</td><td class="num">0.48 s</td><td>lookahead</td></tr>
           <tr><td class="mono">17</td><td class="num">115</td><td class="num">3,488,013</td><td class="num">6.3 s</td><td>lookahead</td></tr>
           <tr><td class="mono">18</td><td class="num">128</td><td class="num">2,026,563</td><td class="num">7.1 s</td><td>lookahead</td></tr>
@@ -507,6 +531,14 @@ c + anchored[n - 1 - k] &lt;= budget</code></pre>
   </section>
 
   <section>
+    <div class="eyebrow">Merging by forced cells</div>
+    <h2>Remember the forced cells below instead of the row above</h2>
+    <p>The search ahead needs only the current row cur and the cells forced below it, forced. The candidates for the next row are "forced ∪ a subset of the cells below painted cells of cur", and whether that row can be satisfied depends only on cur and the next row. Different rows above with the same forced cells lead to exactly the same search, so the current dp.rs uses (cur, forced) as the state and merges them.</p>
+    <p>The table is stored as "cur → [(forced, count), …]". For n = 19 with budget 141, the largest table shrank from 6.75 million to 3.05 million states, and the time from 21.5 s to 13.2 s. Without the row above, the board is reconstructed one edge row per DP pass.</p>
+    <p class="note">The DP demo on this page merges states in the same way.</p>
+  </section>
+
+  <section>
     <div class="eyebrow">Back to DFS</div>
     <h2>With the same pruning, the DFS is faster</h2>
     <p>The current <code>src/dfs.rs</code> is the DFS with the budget, the strip lower bound, the lookahead and the symmetry added as is. It holds no state table, so it needs memory only for the n rows of the current path. Every n up to 15 finishes within 0.3 s.</p>
@@ -519,25 +551,53 @@ c + anchored[n - 1 - k] &lt;= budget</code></pre>
   </section>
 
   <section>
+    <div class="eyebrow">Build from stripes (stripes_dfs.rs)</div>
+    <h2>Build a striped solution first, then prove it minimal</h2>
+    <p>About two thirds of the DFS time went into searching for a solution under the feasible budget. Yet fixing a(n) needs only two facts: a solution with a(n) cells exists, and a(n) − 1 cells are not enough. The first does not have to be found by search; building one is enough. The current default (<code>--algo stripes-dfs</code>) works as follows.</p>
+    <ol class="plain">
+      <li><strong>Build a striped solution</strong>: as in Conjecture 2, some optimal solution has every row striped with period 3 apart from 2 rows and 2 columns at each edge (checked for n = 6–22). Find the minimum solution among boards restricted to such rows.</li>
+      <li><strong>Build from the middle</strong>: choose the two middle rows among the striped rows (48 kinds) and extend the board row by row toward both edges. Once the two rows are fixed, the upper and lower parts do not interact, so their minimums are found separately and added. Results are memoized by "the two fixed rows and the number of rows to the edge".</li>
+      <li><strong>Prove it minimal</strong>: with U the count of the built solution, an exhaustive DFS with budget U − 1 searches every board. If it finds none, a(n) = U. If it finds one, its count becomes the new U and the step repeats.</li>
+    </ol>
+    <p>The stripe restriction is used only to build a solution, so the conclusion is as rigorous as an unrestricted search.</p>
+    <p class="note">This method is designed around Conjecture 2 in the "Conjectures" section. If it fails, the answer is still correct: when the striped solution is not minimal, the DFS with budget U − 1 finds a better one and the search keeps descending. In that case, though, the DFS has to search a feasible budget, and the speed advantage is lost.</p>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>n</th><th class="num">Build striped solution</th><th class="num">Proof (budget a(n) − 1)</th><th class="num">Total</th><th class="num">DFS</th></tr></thead>
+        <tbody>
+          <tr><td class="mono">19</td><td class="num">0.56 s</td><td class="num">1.7 s</td><td class="num">2.2 s</td><td class="num">5.3 s</td></tr>
+          <tr><td class="mono">20</td><td class="num">1.1 s</td><td class="num">11.1 s</td><td class="num">12.2 s</td><td class="num">54 s</td></tr>
+          <tr><td class="mono">21</td><td class="num">2.3 s</td><td class="num">44 s</td><td class="num">46.4 s</td><td class="num">168 s</td></tr>
+          <tr><td class="mono">22</td><td class="num">4.6 s</td><td class="num">159 s</td><td class="num">164 s</td><td class="num">552 s</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <p>"Build striped solution" includes the roughly 0.2 s spent computing the lower bound. The rest is the exhaustive search with budget a(n) − 1. Stripes cannot help there, so making it faster needs parallelism or a cache for the DFS.</p>
+  </section>
+
+  <section>
     <div class="eyebrow">Code</div>
     <h2>Files and roles</h2>
     <div class="table-wrap">
       <table>
         <thead><tr><th>File</th><th>Role</th></tr></thead>
         <tbody>
-          <tr><td><code>src/dfs.rs</code></td><td>Budgeted row DFS (default). <code>admit</code> is the check before entering a row, <code>rec</code> the per-row recursion</td></tr>
+          <tr><td><code>src/stripes_dfs.rs</code></td><td>Build from stripes, then prove (default). <code>construct</code> builds the striped solution, and the DFS proves it minimal</td></tr>
+          <tr><td><code>src/stripes.rs</code></td><td>Striped rows: test (<code>is_striped</code>) and enumeration (<code>rows</code>)</td></tr>
+          <tr><td><code>src/dfs.rs</code></td><td>Budgeted row DFS. <code>admit</code> is the check before entering a row, <code>rec</code> the per-row recursion</td></tr>
           <tr><td><code>src/dp.rs</code></td><td>Budgeted row DP. <code>forward</code> is the two-table DP, <code>search</code> decides a budget, <code>reconstruct</code> and <code>pin_far_end</code> rebuild the board</td></tr>
           <tr><td><code>src/bound.rs</code></td><td>Strip lower bound. <code>strip_min</code> is the strip minimum, <code>lower_bounds</code> the bound for the remaining rows. Used by both DFS and DP</td></tr>
           <tr><td><code>src/row.rs</code></td><td>Shared row operations: <code>forced_below</code> (forced cells), state keys, left-right mirroring</td></tr>
           <tr><td><code>src/brute.rs</code></td><td>Brute force over all 2<sup>n²</sup> boards, for cross-checking (n ≤ 5 or so)</td></tr>
           <tr><td><code>src/board.rs</code></td><td>The <code>Board</code> type and the validity check <code>is_valid</code></td></tr>
           <tr><td><code>src/lib.rs</code></td><td>Known OEIS values a(1)–a(15)</td></tr>
-          <tr><td><code>src/main.rs</code></td><td>Command line (<code>n</code>, <code>--to</code>, <code>--algo dfs|dp|brute</code>, default <code>dfs</code>). Every result is checked with <code>is_valid</code> before printing</td></tr>
+          <tr><td><code>src/main.rs</code></td><td>Command line (<code>n</code>, <code>--to</code>, <code>--algo stripes-dfs|dfs|dp|brute</code>, default <code>stripes-dfs</code>). Every result is checked with <code>is_valid</code> before printing</td></tr>
         </tbody>
       </table>
     </div>
     <h3>Not done yet</h3>
     <ol class="plain">
+      <li><strong>Parallel proof</strong>: the DFS with budget a(n) − 1 is independent for each first-row candidate, so it can scale with the number of cores.</li>
       <li><strong>Tighter lower bound</strong>: the gap between the bound and the answer is 6–8 for n = 16–19. One unit of budget changes the state count about fourfold, so tightening the bound by 1 is worth roughly one smaller n. Options include taller strips and a bound that depends on the current row.</li>
       <li><strong>A cache for the DFS</strong>: remember in a fixed-size table that "this state cannot be finished within a remaining budget of A" and skip it when it comes up again. This reduces repeated work for large n while keeping memory fixed.</li>
       <li><strong>Proof for general n</strong>: prove upper and lower bounds from the "each difference repeats three times" pattern and the diagonal-stripe shape of the solutions.</li>
@@ -924,7 +984,8 @@ c + anchored[n - 1 - k] &lt;= budget</code></pre>
   /* ---- デモ: dp.rs と同じ判定の DP を 1 行ずつ ---- */
   (function () {
     const KNOWN = { 4: 8, 5: 11, 6: 17 };
-    const rawKey = (up, cur) => up * 64 + cur;
+    // 状態 (今の行, その真下の強制マス) のキー。dp.rs と同じく、上の行は持たない
+    const rawKey = (cur, f) => cur * 64 + f;
 
     const ui = id => document.getElementById(id);
     const selN = ui("dp-n"), selB = ui("dp-budget"), chkSym = ui("dp-sym"), msg = ui("dp-msg");
@@ -940,24 +1001,26 @@ c + anchored[n - 1 - k] &lt;= budget</code></pre>
     // 状態を表に入れる。同じ状態なら塗り数の小さい方を残す
     // dp.rs の forward と同じ 1 行先読み。表に入れる前に次の行の強制マスを求める。
     // "dead": 行 cur の条件を満たせない（最後の行なら盤の外に塗りが要る）、"over": 予算超過、"ok": 入れる
+    // 戻り値の f は cur の真下の強制マス（表に入れるときに状態として覚える）
     function admit(k, up, cur, c) {
       const { n, lb, budget } = st;
       const f = forcedBelow(n, up, cur);
-      if (f === null) return "dead";
+      if (f === null) return { r: "dead" };
       const rest = n - 1 - k;
-      if (rest === 0) return f !== 0 ? "dead" : c <= budget ? "ok" : "over";
-      return c + Math.max(lb[rest], popcount(f) + lb[rest - 1]) <= budget ? "ok" : "over";
+      if (rest === 0) return { r: f !== 0 ? "dead" : c <= budget ? "ok" : "over", f };
+      return { r: c + Math.max(lb[rest], popcount(f) + lb[rest - 1]) <= budget ? "ok" : "over", f };
     }
 
-    function insert(next, seen, up, cur, w) {
-      const raw = rawKey(up, cur);
-      const key = st.sym ? Math.min(raw, rawKey(mirrorRow(st.n, up), mirrorRow(st.n, cur))) : raw;
+    // 状態 (cur, f) を表に入れる。同じ状態（左右反転を含む）なら塗り数の小さい方を残す
+    function insert(next, seen, cur, f, w) {
+      const raw = rawKey(cur, f);
+      const key = st.sym ? Math.min(raw, rawKey(mirrorRow(st.n, cur), mirrorRow(st.n, f))) : raw;
       const e = next.get(key);
       if (e) {
         if (seen.has(raw)) st.dup++; else st.mirror++;
-        if (w < e.c) next.set(key, { up, cur, c: w });
+        if (w < e.c) next.set(key, { cur, f, c: w });
       } else {
-        next.set(key, { up, cur, c: w });
+        next.set(key, { cur, f, c: w });
       }
       seen.add(raw);
     }
@@ -968,8 +1031,8 @@ c + anchored[n - 1 - k] &lt;= budget</code></pre>
       const seen = new Set();
       for (let row = 0; row <= full; row++) {
         const c = popcount(row);
-        const r = admit(0, 0, row, c);
-        if (r === "dead") st.dead++; else if (r === "over") st.over++; else insert(st.table, seen, 0, row, c);
+        const { r, f } = admit(0, 0, row, c);
+        if (r === "dead") st.dead++; else if (r === "over") st.over++; else insert(st.table, seen, row, f, c);
       }
       msg.className = "msg";
       msg.textContent = `Of the ${full + 1} candidates for row 0, ${st.dead} would be dead ends at the next row and ${st.over} exceed the budget; ${st.table.size} states enter the table. Press “Next row” to build the table for row 1.`;
@@ -988,7 +1051,7 @@ c + anchored[n - 1 - k] &lt;= budget</code></pre>
       }
       if (st.k === n - 1) {
         let cnt = 0, min = INF;
-        for (const e of st.table.values()) if (forcedBelow(n, e.up, e.cur) === 0) { cnt++; min = Math.min(min, e.c); }
+        for (const e of st.table.values()) if (e.f === 0) { cnt++; min = Math.min(min, e.c); }
         st.done = true;
         if (cnt > 0) {
           msg.className = "msg best";
@@ -1004,14 +1067,13 @@ c + anchored[n - 1 - k] &lt;= budget</code></pre>
       const next = new Map(), seen = new Set();
       st.trans = st.over = st.dup = st.mirror = st.dead = 0;
       for (const e of st.table.values()) {
-        // 表に入れた状態なので、強制マスは必ず求まる
-        const f = forcedBelow(n, e.up, e.cur);
+        // 次の行は（覚えた強制マス）∪（今の行の塗ったマスの真下の部分集合）
         let sub = e.cur;
         for (;;) {
-          const down = f | sub, w = e.c + popcount(down);
+          const down = e.f | sub, w = e.c + popcount(down);
           st.trans++;
-          const r = admit(st.k + 1, e.cur, down, w);
-          if (r === "dead") st.dead++; else if (r === "over") st.over++; else insert(next, seen, e.cur, down, w);
+          const a = admit(st.k + 1, e.cur, down, w);
+          if (a.r === "dead") st.dead++; else if (a.r === "over") st.over++; else insert(next, seen, down, a.f, w);
           if (sub === 0) break;
           sub = (sub - 1) & e.cur;
         }
@@ -1024,13 +1086,14 @@ c + anchored[n - 1 - k] &lt;= budget</code></pre>
       render();
     }
 
-    function mini(n, up, cur, top) {
+    // 上の段が今の行、下の段が次の行の制約（橙は必ず塗る、点線枠は自由に選べる）
+    function mini(n, cur, f) {
       const C = 12, W = n * C, H = 2 * C;
       let s = `<svg viewBox="0 0 ${W} ${H}" aria-hidden="true"><rect width="${W}" height="${H}" fill="var(--surface)"/>`;
-      if (top) s += `<rect width="${W}" height="${C}" fill="var(--code-bg)"/>`;
       for (let c = 0; c < n; c++) {
-        if (bit(up, c)) s += `<rect x="${c * C}" y="0" width="${C}" height="${C}" fill="var(--accent)"/>`;
-        if (bit(cur, c)) s += `<rect x="${c * C}" y="${C}" width="${C}" height="${C}" fill="var(--accent)"/>`;
+        if (bit(cur, c)) s += `<rect x="${c * C}" y="0" width="${C}" height="${C}" fill="var(--accent)"/>`;
+        if (bit(f, c)) s += `<rect x="${c * C + 2}" y="${C + 2}" width="${C - 4}" height="${C - 4}" fill="var(--force)" rx="2"/>`;
+        else if (bit(cur, c)) s += `<rect x="${c * C + 2}" y="${C + 2}" width="${C - 4}" height="${C - 4}" fill="none" stroke="var(--accent)" stroke-width="1" stroke-dasharray="2 1.5" rx="2"/>`;
       }
       for (let i = 0; i <= n; i++) s += `<line x1="${i * C}" y1="0" x2="${i * C}" y2="${H}" stroke="var(--grid)" stroke-width=".8"/>`;
       for (let j = 0; j <= 2; j++) s += `<line x1="0" y1="${j * C}" x2="${W}" y2="${j * C}" stroke="var(--grid)" stroke-width=".8"/>`;
@@ -1048,12 +1111,11 @@ c + anchored[n - 1 - k] &lt;= budget</code></pre>
       ui("dp-dead").textContent = st.dead;
       ui("dp-cond").textContent = `Keep if: painted through row ${k} + lower bound ${lb[n - 1 - k]} for the remaining ${n - 1 - k} rows ≤ budget ${budget}`;
       const LIMIT = 60;
-      const items = [...st.table.values()].sort((a, b) => a.c - b.c || rawKey(a.up, a.cur) - rawKey(b.up, b.cur));
+      const items = [...st.table.values()].sort((a, b) => a.c - b.c || rawKey(a.cur, a.f) - rawKey(b.cur, b.f));
       const final = st.done && k === n - 1;
       ui("dp-states").innerHTML = items.slice(0, LIMIT).map(e => {
-        const f = forcedBelow(n, e.up, e.cur);
-        const cls = final ? (f === 0 ? "ok" : "ng") : f === null ? "dead" : "";
-        return `<div class="st ${cls}">${mini(n, e.up, e.cur, k === 0)}<span>${e.c}</span></div>`;
+        const cls = final ? (e.f === 0 ? "ok" : "ng") : "";
+        return `<div class="st ${cls}">${mini(n, e.cur, e.f)}<span>${e.c}</span></div>`;
       }).join("") + (items.length > LIMIT ? `<div class="more">${items.length - LIMIT} more states</div>` : "");
     }
 

@@ -151,8 +151,8 @@ ul.plain, ol.plain { margin: 0; padding-left: 1.4em; display: grid; gap: 6px; }
     <p class="axis-note"><a href="algorithm.html">English</a> | 日本語</p>
     <div class="hero">
       <div style="display:grid;gap:12px">
-        <h1>行単位の探索で a(16)〜a(19) を求める</h1>
-        <p class="lead">n×n の格子のマスをいくつか塗り、塗っていないマスがどれも上下左右でちょうど 2 個の塗ったマスに接するようにします。塗るマスの最小個数が a(n) です。行単位の DFS から始め、予算と下界で枝を切る行単位の DP（<code>src/dp.rs</code>）で、OEIS に載っている a(15) の先、a(16)〜a(19) まで求めました。最後に、同じ下界を DFS（<code>src/dfs.rs</code>）に入れると DP より速くなることが分かり、今は DFS が既定です。その仕組みを順に説明します。</p>
+        <h1>行単位の探索で a(16)〜a(22) を求める</h1>
+        <p class="lead">n×n の格子のマスをいくつか塗り、塗っていないマスがどれも上下左右でちょうど 2 個の塗ったマスに接するようにします。塗るマスの最小個数が a(n) です。行単位の DFS から始め、予算と下界で枝を切る行単位の DP（<code>src/dp.rs</code>）で、OEIS に載っている a(15) の先、a(16)〜a(19) まで求めました。同じ下界を DFS（<code>src/dfs.rs</code>）に入れると DP より速くなり、さらに縞模様の解を先に作ってから最小だと証明する方法（<code>src/stripes_dfs.rs</code>）で a(22) まで求めました。今はこの方法が既定です。その仕組みを順に説明します。</p>
       </div>
       <figure>
         <svg id="hero-svg" role="img" aria-label="n=16 の最小解"></svg>
@@ -163,11 +163,11 @@ ul.plain, ol.plain { margin: 0; padding-left: 1.4em; display: grid; gap: 6px; }
 
   <section>
     <div class="eyebrow">結果</div>
-    <h2>a(16) = 102、a(17) = 115、a(18) = 128、a(19) = 141</h2>
-    <p>このページを作った時点で OEIS に載っていたのは a(15) までです（a(12)〜a(15) は Bert Dobbelaere が 2021 年に計算）。a(12)〜a(15) は同じプログラムで再現でき、その先の 4 項を求めました。各値について、次の 2 つを確かめています。</p>
+    <h2>a(16) = 102、a(17) = 115、a(18) = 128、a(19) = 141、a(20) = 156、a(21) = 171、a(22) = 186</h2>
+    <p>このページを作った時点で OEIS に載っていたのは a(15) までです（a(12)〜a(15) は Bert Dobbelaere が 2021 年に計算）。a(12)〜a(15) は同じプログラムで再現でき、その先の 7 項を求めました。各値について、次の 2 つを確かめています。</p>
     <ul class="plain">
-      <li><strong>a(n) − 1 個では塗れない</strong>: 下界から a(n) − 1 までのすべての予算で、DP が「解なし」を返した。</li>
-      <li><strong>a(n) 個で塗れる</strong>: 盤面を復元し、全マスの条件を <code>Board::is_valid</code> で確かめた。</li>
+      <li><strong>a(n) − 1 個では塗れない</strong>: 予算 a(n) − 1 で全部の塗り方を調べ、解がなかった。a(16)〜a(22) は、DP、DFS、縞から作る方法のうち 2 つ以上で、それぞれ同じ値を得た。</li>
+      <li><strong>a(n) 個で塗れる</strong>: 解の盤面の全マスの条件を <code>Board::is_valid</code> で確かめた。</li>
     </ul>
     <div class="table-wrap">
       <table>
@@ -181,11 +181,31 @@ ul.plain, ol.plain { margin: 0; padding-left: 1.4em; display: grid; gap: 6px; }
           <tr><td class="mono">17</td><td class="num new">115</td><td class="num">13</td><td>このプログラム</td></tr>
           <tr><td class="mono">18</td><td class="num new">128</td><td class="num">13</td><td>このプログラム</td></tr>
           <tr><td class="mono">19</td><td class="num new">141</td><td class="num">13</td><td>このプログラム</td></tr>
-          <tr><td class="mono">20</td><td class="num">≥ 156</td><td class="num">–</td><td>このプログラム（予算 155 まで解なし。途中）</td></tr>
+          <tr><td class="mono">20</td><td class="num new">156</td><td class="num">15</td><td>このプログラム</td></tr>
+          <tr><td class="mono">21</td><td class="num new">171</td><td class="num">15</td><td>このプログラム</td></tr>
+          <tr><td class="mono">22</td><td class="num new">186</td><td class="num">15</td><td>このプログラム</td></tr>
         </tbody>
       </table>
     </div>
-    <p class="note">差は n = 8 から 7, 7, 7, 9, 9, 9, 11, 11, 11, 13, 13, 13 と、同じ値が 3 回ずつ続いています。このまま続けば a(20) = 156 ですが、まだ確かめていません。</p>
+    <p class="note">これらの値から見えてくる規則は、次の「予想」の節にまとめています。</p>
+  </section>
+
+  <section>
+    <div class="eyebrow">予想</div>
+    <h2>値の式と、解の形についての 2 つの予想</h2>
+    <p>求めた値と解から、次の 2 つの予想が立ちます。どちらも証明はありません。</p>
+    <h3>予想 1（値の式）</h3>
+<pre><code>a(n) = ⌈(n+2)² / 3⌉ − 6    （n ≥ 7）</code></pre>
+    <ul class="plain">
+      <li><strong>根拠</strong>: n = 7〜22 の 16 個の値すべてと一致する。言い換えると、n = 8 以降の差が 7, 7, 7, 9, 9, 9, 11, 11, 11, 13, 13, 13, 15, 15, 15 と、同じ値を 3 回ずつ繰り返す。</li>
+      <li><strong>主要項の理由</strong>: 塗っていないマスはちょうど 2 個の塗ったマスに接し、塗ったマスが接するマスは最大 4 個なので、全体の 3 分の 1 以上を塗る必要がある。(n+2)² の形と −6 は、端の影響と考えられる。</li>
+    </ul>
+    <h3>予想 2（解の形）</h3>
+    <p>どの n ≥ 6 にも、上下 2 行と左右 2 列を除いて、全部の行が周期 3 の斜めの縞（行ごとに決まる s について、c ≡ s (mod 3) の列だけを塗る）になる最適解がある。冒頭の n = 16 の図がその例です。</p>
+    <ul class="plain">
+      <li><strong>根拠</strong>: n = 6〜22 では、DFS が見つけた最適解がこの形になっている。これらの n でこの形の最適解が存在することは確かめたが、すべての最適解が縞になるかは調べていない。</li>
+      <li><strong>使い道</strong>: 既定のアルゴリズムは、この予想を前提に設計している（「縞から作る」の節）。</li>
+    </ul>
   </section>
 
   <section>
@@ -197,7 +217,9 @@ ul.plain, ol.plain { margin: 0; padding-left: 1.4em; display: grid; gap: 6px; }
       <li><strong>予算と下界</strong>: 「予算以下で塗れるか」を判定し、残りの行に最低限必要な塗り数で枝を切る。これで a(15) が数秒になった。</li>
       <li><strong>メモリの削減</strong>: 表は 2 枚だけ持つ。盤面は、向きを交互に変える DP で復元する。左右対称で状態を半分にする。</li>
       <li><strong>先読み</strong>: 状態を表に入れる前に次の行の強制マスを求め、行き止まりと予算超過を捨てる。表の 8〜9 割が次の行で行き止まりになる状態だった。</li>
+      <li><strong>上の行を捨てる</strong>: DP の状態を (上の行, 今の行) から (今の行, その真下の強制マス) に変える。上の行が違っても強制マスが同じなら、その先の探索は同じになる。</li>
       <li><strong>DFS に戻る</strong>: 予算、下界、先読み、左右対称をそのまま DFS に入れると、DP より速く、メモリも経路の n 行分だけで済んだ。</li>
+      <li><strong>縞から作って証明する</strong>: 最適解の内側は周期 3 の斜めの縞になっている。縞の行に限った盤面で解を先に作り、1 少ない予算で全部の塗り方を調べて最小だと証明する。n = 22 が 552 秒から 164 秒になった。</li>
     </ol>
   </section>
 
@@ -342,7 +364,7 @@ ul.plain, ol.plain { margin: 0; padding-left: 1.4em; display: grid; gap: 6px; }
   <section>
     <div class="eyebrow">DP</div>
     <h2>直前 2 行を状態にして、行ごとに幅優先で進める</h2>
-    <p>状態を (上の行, 今の行) とし、行 k で到達できる状態と、そこまでの最小塗り数を表にします。行 k の表から、強制マスと自由マスの部分集合で行 k+1 の表を作ります。同じ状態が何度生まれても、塗り数の小さい方だけを残します。</p>
+    <p>最初の版では状態を (上の行, 今の行) とし、行 k で到達できる状態と、そこまでの最小塗り数を表にしました。今の dp.rs は、上の行の代わりに真下の強制マスを覚えます（「強制マスでまとめる」の節）。行 k の表から、強制マスと自由マスの部分集合で行 k+1 の表を作ります。同じ状態が何度生まれても、塗り数の小さい方だけを残します。</p>
     <p>次の表は今の表だけから作れます。なので、持つ表は「今の行」と「次の行」の 2 枚で足ります。DFS は今の経路しか覚えないのでメモリはほぼ使いませんが、DP は 1 行分の状態を全部持つ代わりに、重複をなくしています。</p>
   </section>
 
@@ -393,7 +415,7 @@ c + anchored[n - 1 - k] &lt;= budget</code></pre>
   <section>
     <div class="eyebrow">盤面の復元</div>
     <h2>向きを交互に変えて DP を繰り返す</h2>
-    <p>表を 2 枚しか持たないと、最後にわかるのは最小値と最後の 2 行だけです。それより上の行は忘れています。</p>
+    <p>表を 2 枚しか持たないと、最後にわかるのは最小値と最後の状態だけです。それより上の行は忘れています。以下は最初の版の手順です。今の dp.rs は状態に上の行を持たないので、最後の 1 行から始め、1 回の DP で端の 1 行ずつ確定させます。</p>
     <ol class="plain">
       <li>確定した下の 2 行から出発し、上下を反転して DP を回す。最後に上の 2 行が確定する。</li>
       <li>確定した上の行から出発し、下の確定した行につながる 2 行を確定させる。</li>
@@ -418,8 +440,8 @@ c + anchored[n - 1 - k] &lt;= budget</code></pre>
   <section>
     <div class="eyebrow">左右対称</div>
     <h2>左右反転で重なる状態を 1 つにまとめる</h2>
-    <p>状態 (上の行, 今の行) と、2 行とも左右反転した状態は、先の探索が鏡写しになるだけで最小塗り数も同じです。次の状態を作るたびに、反転したものと比べて小さい方をキーにします。下界も左右対称なので、枝刈りの判定は変わりません。</p>
-    <p>判定の DP の最後の状態が鏡写しの方でも、解を左右反転すればその 2 行で終わる解になるので、そのまま復元の出発点に使えます。復元の DP は両端が固定されていて左右対称ではないので、まとめません。</p>
+    <p>状態と、それを左右反転した状態は、先の探索が鏡写しになるだけで最小塗り数も同じです。次の状態を作るたびに、反転したものと比べて小さい方をキーにします。下界も左右対称なので、枝刈りの判定は変わりません。</p>
+    <p>判定の DP の最後の状態が鏡写しの方でも、解を左右反転すればその状態で終わる解になるので、そのまま復元の出発点に使えます。復元の DP は両端が固定されていて左右対称ではないので、まとめません。</p>
     <div class="table-wrap">
       <table>
         <thead><tr><th>n = 17</th><th class="num">対称性なし</th><th class="num">左右対称あり</th></tr></thead>
@@ -436,7 +458,7 @@ c + anchored[n - 1 - k] &lt;= budget</code></pre>
   <section>
     <div class="eyebrow">デモ（dp.rs）</div>
     <h2>DP の表を 1 行ずつ作る</h2>
-    <p><code>src/dp.rs</code> の判定の DP と同じ手順を、このページの中で動かしています。DFS のデモと違い、1 回のクリックで次の行の表を丸ごと作ります。dp.rs と同じく、状態を表に入れる前に次の行の強制マスを求め、行き止まりと予算超過の状態は入れません。カード 1 枚が 1 つの状態で、上の段が行 k−1、下の段が行 k、下の数字が行 k までの最小塗り数です。</p>
+    <p><code>src/dp.rs</code> の判定の DP と同じ手順を、このページの中で動かしています。DFS のデモと違い、1 回のクリックで次の行の表を丸ごと作ります。dp.rs と同じく、状態を表に入れる前に次の行の強制マスを求め、行き止まりと予算超過の状態は入れません。カード 1 枚が 1 つの状態（今の行, その真下の強制マス）です。上の段が行 k、下の段が行 k+1 の制約、下の数字が行 k までの最小塗り数です。上の行は覚えないので、上の行だけが違う経路は 1 枚にまとまります。</p>
     <div class="demo">
       <div class="controls">
         <label for="dp-n">盤面 n
@@ -465,7 +487,8 @@ c + anchored[n - 1 - k] &lt;= budget</code></pre>
       </div>
       <div class="dp-cond" id="dp-cond"></div>
       <div class="legend">
-        <span><i class="sw" style="background:var(--code-bg)"></i>盤の外の行（行 0 の上）</span>
+        <span><i class="sw" style="background:var(--force);border-color:var(--force)"></i>行 k+1 で必ず塗るマス（強制マス）</span>
+        <span><i class="sw" style="border:2px dashed var(--accent)"></i>行 k+1 で自由に選べるマス</span>
         <span><i class="sw" style="background:var(--accent-soft);border-color:var(--accent)"></i>最後の行で下端につながる（解）</span>
       </div>
       <div class="state-grid" id="dp-states"></div>
@@ -476,11 +499,12 @@ c + anchored[n - 1 - k] &lt;= budget</code></pre>
   <section>
     <div class="eyebrow">実行結果（dp.rs）</div>
     <h2>DP の計測</h2>
-    <p>リリースビルドで、Core i7-12700F、メモリ 32GB、シングルスレッドでの計測です。「先読み」が今の dp.rs の値で、「先読みなし」はその前の版です。</p>
+    <p>リリースビルドで、Core i7-12700F、メモリ 32GB、シングルスレッドでの計測です。「今の版」が今の dp.rs の値です。「先読み」はその前の版、「先読みなし」はさらに前の版です。</p>
     <div class="table-wrap">
       <table>
         <thead><tr><th>n</th><th class="num">a(n)</th><th class="num">予算 a(n) の状態数の最大</th><th class="num">合計時間</th><th>版</th></tr></thead>
         <tbody>
+          <tr><td class="mono">19</td><td class="num">141</td><td class="num">3,052,335</td><td class="num">13.2 秒</td><td>今の版（強制マスでまとめる）</td></tr>
           <tr><td class="mono">16</td><td class="num">102</td><td class="num">184,106</td><td class="num">0.48 秒</td><td>先読み</td></tr>
           <tr><td class="mono">17</td><td class="num">115</td><td class="num">3,488,013</td><td class="num">6.3 秒</td><td>先読み</td></tr>
           <tr><td class="mono">18</td><td class="num">128</td><td class="num">2,026,563</td><td class="num">7.1 秒</td><td>先読み</td></tr>
@@ -507,6 +531,14 @@ c + anchored[n - 1 - k] &lt;= budget</code></pre>
   </section>
 
   <section>
+    <div class="eyebrow">強制マスでまとめる</div>
+    <h2>上の行の代わりに、真下の強制マスを覚える</h2>
+    <p>先の探索に必要なのは、今の行 cur と、その真下で必ず塗るマス forced だけです。次の行の候補は「forced ∪ cur の塗ったマスの真下の部分集合」で、その行が条件を満たせるかも cur と次の行だけで決まります。上の行が違っても forced が同じなら、その先はまったく同じになります。そこで今の dp.rs は、状態を (cur, forced) にして 1 つにまとめています。</p>
+    <p>表は「cur → [(forced, 塗り数), …]」の形で持ちます。n = 19、予算 141 で、表の最大は 675 万状態から 305 万状態になり、時間は 21.5 秒から 13.2 秒になりました。盤面の復元は、上の行を持たない代わりに、1 回の DP で端の 1 行ずつ確定させます。</p>
+    <p class="note">このページの DP のデモも、この形で状態をまとめています。</p>
+  </section>
+
+  <section>
     <div class="eyebrow">DFS に戻る</div>
     <h2>同じ枝刈りなら、DFS の方が速い</h2>
     <p>予算、帯の下界、先読み、左右対称を、そのまま DFS に入れたのが今の <code>src/dfs.rs</code> です。状態の表を持たないので、メモリは今の経路の n 行分だけです。n = 15 まで、どれも 0.3 秒以内で終わります。</p>
@@ -519,25 +551,53 @@ c + anchored[n - 1 - k] &lt;= budget</code></pre>
   </section>
 
   <section>
+    <div class="eyebrow">縞から作る（stripes_dfs.rs）</div>
+    <h2>縞模様の解を先に作り、最小だと証明する</h2>
+    <p>DFS の時間の約 3 分の 2 は、解ありの予算で解を探す時間でした。ところが a(n) を確定させるのに必要なのは、「a(n) 個の解が 1 つある」ことと「a(n) − 1 個では塗れない」ことだけです。前者は探索で見つけなくても、作れば十分です。今の既定（<code>--algo stripes-dfs</code>）は次の手順で解きます。</p>
+    <ol class="plain">
+      <li><strong>縞の解を作る</strong>: 予想 2 のとおり、上下 2 行と左右 2 列を除いて全部の行が周期 3 の縞になる最適解がある（n = 6〜22 で確認）。この形の行だけに限った盤面の中で、最小の解を作る。</li>
+      <li><strong>真ん中から作る</strong>: 真ん中の 2 行を縞の行（48 通り）から選び、上下の端へ 1 行ずつ伸ばす。2 行が決まれば上側と下側は互いに関係しないので、別々に最小を求めて足す。「決まった 2 行と、端までの行数」ごとに結果を覚えて使い回す。</li>
+      <li><strong>最小だと証明する</strong>: 作った解の塗り数を U として、予算 U − 1 の DFS で全部の塗り方を調べる。解がなければ a(n) = U。解があれば、その塗り数を新しい U にして繰り返す。</li>
+    </ol>
+    <p>縞の制限は解を作る側にしか使わないので、結論は制限のない探索と同じく厳密です。</p>
+    <p class="note">この方法は、「予想」の節の予想 2 を前提に設計しています。予想が外れても答えは正しいままです。縞の解が最小でなければ、予算 U − 1 の DFS が解を見つけ、そこからさらに下っていきます。ただしその場合は、DFS が解ありの予算を探索することになり、速さの利点はなくなります。</p>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>n</th><th class="num">縞の解を作る</th><th class="num">証明（予算 a(n) − 1）</th><th class="num">合計</th><th class="num">DFS</th></tr></thead>
+        <tbody>
+          <tr><td class="mono">19</td><td class="num">0.56 秒</td><td class="num">1.7 秒</td><td class="num">2.2 秒</td><td class="num">5.3 秒</td></tr>
+          <tr><td class="mono">20</td><td class="num">1.1 秒</td><td class="num">11.1 秒</td><td class="num">12.2 秒</td><td class="num">54 秒</td></tr>
+          <tr><td class="mono">21</td><td class="num">2.3 秒</td><td class="num">44 秒</td><td class="num">46.4 秒</td><td class="num">168 秒</td></tr>
+          <tr><td class="mono">22</td><td class="num">4.6 秒</td><td class="num">159 秒</td><td class="num">164 秒</td><td class="num">552 秒</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <p>「縞の解を作る」には、最初に下界を計算する 0.2 秒ほどを含みます。残りの時間は、予算 a(n) − 1 で全部の塗り方を調べる部分です。ここは縞に頼れないので、速くするには並列化や DFS へのキャッシュが要ります。</p>
+  </section>
+
+  <section>
     <div class="eyebrow">コード</div>
     <h2>ファイルと役割</h2>
     <div class="table-wrap">
       <table>
         <thead><tr><th>ファイル</th><th>役割</th></tr></thead>
         <tbody>
-          <tr><td><code>src/dfs.rs</code></td><td>予算付きの行単位 DFS（既定）。<code>admit</code> が進む前の判定、<code>rec</code> が行ごとの再帰</td></tr>
+          <tr><td><code>src/stripes_dfs.rs</code></td><td>縞から作って証明する（既定）。<code>construct</code> が縞の解を作り、DFS で最小だと証明する</td></tr>
+          <tr><td><code>src/stripes.rs</code></td><td>縞の行の判定（<code>is_striped</code>）と一覧（<code>rows</code>）</td></tr>
+          <tr><td><code>src/dfs.rs</code></td><td>予算付きの行単位 DFS。<code>admit</code> が進む前の判定、<code>rec</code> が行ごとの再帰</td></tr>
           <tr><td><code>src/dp.rs</code></td><td>予算付きの行単位 DP。<code>forward</code> が表 2 枚の DP、<code>search</code> が予算の判定、<code>reconstruct</code> と <code>pin_far_end</code> が盤面の復元</td></tr>
           <tr><td><code>src/bound.rs</code></td><td>帯の下界。<code>strip_min</code> が帯の最小塗り数、<code>lower_bounds</code> が残りの行の下界。DFS と DP の両方で使う</td></tr>
           <tr><td><code>src/row.rs</code></td><td>行の共通の操作。<code>forced_below</code>（強制マスの計算）、状態のキー、左右反転</td></tr>
           <tr><td><code>src/brute.rs</code></td><td>全 2<sup>n²</sup> 通りを調べる総当たり。答え合わせ用（n ≤ 5 程度）</td></tr>
           <tr><td><code>src/board.rs</code></td><td>盤面 <code>Board</code> と、条件を満たすか確かめる <code>is_valid</code></td></tr>
           <tr><td><code>src/lib.rs</code></td><td>OEIS の既知の値 a(1)〜a(15)</td></tr>
-          <tr><td><code>src/main.rs</code></td><td>コマンドライン（<code>n</code>、<code>--to</code>、<code>--algo dfs|dp|brute</code>、既定は <code>dfs</code>）。表示する前に必ず <code>is_valid</code> で確かめる</td></tr>
+          <tr><td><code>src/main.rs</code></td><td>コマンドライン（<code>n</code>、<code>--to</code>、<code>--algo stripes-dfs|dfs|dp|brute</code>、既定は <code>stripes-dfs</code>）。表示する前に必ず <code>is_valid</code> で確かめる</td></tr>
         </tbody>
       </table>
     </div>
     <h3>まだやっていないこと</h3>
     <ol class="plain">
+      <li><strong>証明の段階の並列化</strong>: 予算 a(n) − 1 の DFS は、行 0 の候補ごとに独立しているので、コア数に比例して速くできる</li>
       <li><strong>下界をきつくする</strong>: 下界と答えの差は n = 16〜19 で 6〜8。予算 1 の差で状態は約 4 倍変わるので、下界を 1 詰めるのは n を 1 小さくするのとほぼ同じ効果。帯を高くする、今の行に応じた下界にする、など</li>
       <li><strong>DFS にキャッシュを付ける</strong>: 「この状態は残り予算 A 以下では解けない」を固定サイズの表に覚え、同じ状態に来たら調べ直さない。メモリを固定したまま、大きい n での調べ直しを減らせる</li>
       <li><strong>一般の n での証明</strong>: 差が同じ値を 3 回ずつ繰り返す規則と、斜めの縞の解の形から、上限と下限を理論で示す</li>
@@ -924,7 +984,8 @@ c + anchored[n - 1 - k] &lt;= budget</code></pre>
   /* ---- デモ: dp.rs と同じ判定の DP を 1 行ずつ ---- */
   (function () {
     const KNOWN = { 4: 8, 5: 11, 6: 17 };
-    const rawKey = (up, cur) => up * 64 + cur;
+    // 状態 (今の行, その真下の強制マス) のキー。dp.rs と同じく、上の行は持たない
+    const rawKey = (cur, f) => cur * 64 + f;
 
     const ui = id => document.getElementById(id);
     const selN = ui("dp-n"), selB = ui("dp-budget"), chkSym = ui("dp-sym"), msg = ui("dp-msg");
@@ -940,24 +1001,26 @@ c + anchored[n - 1 - k] &lt;= budget</code></pre>
     // 状態を表に入れる。同じ状態なら塗り数の小さい方を残す
     // dp.rs の forward と同じ 1 行先読み。表に入れる前に次の行の強制マスを求める。
     // "dead": 行 cur の条件を満たせない（最後の行なら盤の外に塗りが要る）、"over": 予算超過、"ok": 入れる
+    // 戻り値の f は cur の真下の強制マス（表に入れるときに状態として覚える）
     function admit(k, up, cur, c) {
       const { n, lb, budget } = st;
       const f = forcedBelow(n, up, cur);
-      if (f === null) return "dead";
+      if (f === null) return { r: "dead" };
       const rest = n - 1 - k;
-      if (rest === 0) return f !== 0 ? "dead" : c <= budget ? "ok" : "over";
-      return c + Math.max(lb[rest], popcount(f) + lb[rest - 1]) <= budget ? "ok" : "over";
+      if (rest === 0) return { r: f !== 0 ? "dead" : c <= budget ? "ok" : "over", f };
+      return { r: c + Math.max(lb[rest], popcount(f) + lb[rest - 1]) <= budget ? "ok" : "over", f };
     }
 
-    function insert(next, seen, up, cur, w) {
-      const raw = rawKey(up, cur);
-      const key = st.sym ? Math.min(raw, rawKey(mirrorRow(st.n, up), mirrorRow(st.n, cur))) : raw;
+    // 状態 (cur, f) を表に入れる。同じ状態（左右反転を含む）なら塗り数の小さい方を残す
+    function insert(next, seen, cur, f, w) {
+      const raw = rawKey(cur, f);
+      const key = st.sym ? Math.min(raw, rawKey(mirrorRow(st.n, cur), mirrorRow(st.n, f))) : raw;
       const e = next.get(key);
       if (e) {
         if (seen.has(raw)) st.dup++; else st.mirror++;
-        if (w < e.c) next.set(key, { up, cur, c: w });
+        if (w < e.c) next.set(key, { cur, f, c: w });
       } else {
-        next.set(key, { up, cur, c: w });
+        next.set(key, { cur, f, c: w });
       }
       seen.add(raw);
     }
@@ -968,8 +1031,8 @@ c + anchored[n - 1 - k] &lt;= budget</code></pre>
       const seen = new Set();
       for (let row = 0; row <= full; row++) {
         const c = popcount(row);
-        const r = admit(0, 0, row, c);
-        if (r === "dead") st.dead++; else if (r === "over") st.over++; else insert(st.table, seen, 0, row, c);
+        const { r, f } = admit(0, 0, row, c);
+        if (r === "dead") st.dead++; else if (r === "over") st.over++; else insert(st.table, seen, row, f, c);
       }
       msg.className = "msg";
       msg.textContent = `行 0 の候補 ${full + 1} 通りのうち、次の行で行き止まりになる ${st.dead} 個と予算超過の ${st.over} 個を捨て、${st.table.size} 状態を表に入れた。「次の行へ」で行 1 の表を作る。`;
@@ -988,7 +1051,7 @@ c + anchored[n - 1 - k] &lt;= budget</code></pre>
       }
       if (st.k === n - 1) {
         let cnt = 0, min = INF;
-        for (const e of st.table.values()) if (forcedBelow(n, e.up, e.cur) === 0) { cnt++; min = Math.min(min, e.c); }
+        for (const e of st.table.values()) if (e.f === 0) { cnt++; min = Math.min(min, e.c); }
         st.done = true;
         if (cnt > 0) {
           msg.className = "msg best";
@@ -1004,14 +1067,13 @@ c + anchored[n - 1 - k] &lt;= budget</code></pre>
       const next = new Map(), seen = new Set();
       st.trans = st.over = st.dup = st.mirror = st.dead = 0;
       for (const e of st.table.values()) {
-        // 表に入れた状態なので、強制マスは必ず求まる
-        const f = forcedBelow(n, e.up, e.cur);
+        // 次の行は（覚えた強制マス）∪（今の行の塗ったマスの真下の部分集合）
         let sub = e.cur;
         for (;;) {
-          const down = f | sub, w = e.c + popcount(down);
+          const down = e.f | sub, w = e.c + popcount(down);
           st.trans++;
-          const r = admit(st.k + 1, e.cur, down, w);
-          if (r === "dead") st.dead++; else if (r === "over") st.over++; else insert(next, seen, e.cur, down, w);
+          const a = admit(st.k + 1, e.cur, down, w);
+          if (a.r === "dead") st.dead++; else if (a.r === "over") st.over++; else insert(next, seen, down, a.f, w);
           if (sub === 0) break;
           sub = (sub - 1) & e.cur;
         }
@@ -1024,13 +1086,14 @@ c + anchored[n - 1 - k] &lt;= budget</code></pre>
       render();
     }
 
-    function mini(n, up, cur, top) {
+    // 上の段が今の行、下の段が次の行の制約（橙は必ず塗る、点線枠は自由に選べる）
+    function mini(n, cur, f) {
       const C = 12, W = n * C, H = 2 * C;
       let s = `<svg viewBox="0 0 ${W} ${H}" aria-hidden="true"><rect width="${W}" height="${H}" fill="var(--surface)"/>`;
-      if (top) s += `<rect width="${W}" height="${C}" fill="var(--code-bg)"/>`;
       for (let c = 0; c < n; c++) {
-        if (bit(up, c)) s += `<rect x="${c * C}" y="0" width="${C}" height="${C}" fill="var(--accent)"/>`;
-        if (bit(cur, c)) s += `<rect x="${c * C}" y="${C}" width="${C}" height="${C}" fill="var(--accent)"/>`;
+        if (bit(cur, c)) s += `<rect x="${c * C}" y="0" width="${C}" height="${C}" fill="var(--accent)"/>`;
+        if (bit(f, c)) s += `<rect x="${c * C + 2}" y="${C + 2}" width="${C - 4}" height="${C - 4}" fill="var(--force)" rx="2"/>`;
+        else if (bit(cur, c)) s += `<rect x="${c * C + 2}" y="${C + 2}" width="${C - 4}" height="${C - 4}" fill="none" stroke="var(--accent)" stroke-width="1" stroke-dasharray="2 1.5" rx="2"/>`;
       }
       for (let i = 0; i <= n; i++) s += `<line x1="${i * C}" y1="0" x2="${i * C}" y2="${H}" stroke="var(--grid)" stroke-width=".8"/>`;
       for (let j = 0; j <= 2; j++) s += `<line x1="0" y1="${j * C}" x2="${W}" y2="${j * C}" stroke="var(--grid)" stroke-width=".8"/>`;
@@ -1048,12 +1111,11 @@ c + anchored[n - 1 - k] &lt;= budget</code></pre>
       ui("dp-dead").textContent = st.dead;
       ui("dp-cond").textContent = `残す条件: 行 ${k} までの塗り数 + 残り ${n - 1 - k} 行の下界 ${lb[n - 1 - k]} ≤ 予算 ${budget}`;
       const LIMIT = 60;
-      const items = [...st.table.values()].sort((a, b) => a.c - b.c || rawKey(a.up, a.cur) - rawKey(b.up, b.cur));
+      const items = [...st.table.values()].sort((a, b) => a.c - b.c || rawKey(a.cur, a.f) - rawKey(b.cur, b.f));
       const final = st.done && k === n - 1;
       ui("dp-states").innerHTML = items.slice(0, LIMIT).map(e => {
-        const f = forcedBelow(n, e.up, e.cur);
-        const cls = final ? (f === 0 ? "ok" : "ng") : f === null ? "dead" : "";
-        return `<div class="st ${cls}">${mini(n, e.up, e.cur, k === 0)}<span>${e.c}</span></div>`;
+        const cls = final ? (e.f === 0 ? "ok" : "ng") : "";
+        return `<div class="st ${cls}">${mini(n, e.cur, e.f)}<span>${e.c}</span></div>`;
       }).join("") + (items.length > LIMIT ? `<div class="more">ほか ${items.length - LIMIT} 状態</div>` : "");
     }
 
