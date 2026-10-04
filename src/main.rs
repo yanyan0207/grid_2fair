@@ -110,7 +110,7 @@ fn run(n: usize, algo: Algo, margin: usize) -> usize {
                 margin,
                 |phase, budget, feasible, nodes| match phase {
                     Phase::Construct => println!(
-                        "construct: {budget} cells with striped rows (states: {nodes}, {:.2?})",
+                        "construct: {budget} cells with striped rows (nodes: {nodes}, {:.2?})",
                         start.elapsed()
                     ),
                     Phase::Prove => {

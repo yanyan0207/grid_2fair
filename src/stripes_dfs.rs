@@ -1,8 +1,8 @@
 //! 縞の行で解を作り、DFS で最小だと証明する（--algo stripes-dfs）
 //!
 //! dfs.rs は予算を下界から 1 つずつ上げるが、ここでは逆に上から下ろす。
-//! 1. 端以外の行を縞模様に制限して（stripes.rs）、その中で最小の解を作る（construct）。
-//!    最適解は内側が周期 3 の斜めの縞になっているので、制限しても最小かそれに近い解が得られる。
+//! 1. 端以外の行を縞模様に制限して（stripes.rs）、予算以内の解を 1 つ作る（construct）。
+//!    最適解は内側が周期 3 の斜めの縞になっているので、制限しても最小の解が得られることが多い。
 //!    その塗り数を U とする。
 //! 2. 制限なしの DFS で、予算 U-1 で塗れるかを調べる。塗れなければ a(n) = U が確定する
 //!    （U-1 個で塗れないなら、それより少なくても塗れない）。
@@ -10,15 +10,12 @@
 //!
 //! 制限は解を作る側にしか使わないので、結論は制限のない探索と同じく厳密。
 //!
-//! construct は、真ん中の 2 行を縞の行から選び、そこから上下の端へ向かって探す。
-//! 2 行が決まれば、上側の行の条件と下側の行の条件は互いに関係しないので、別々に最小を求めて足す。
-//! 上側も下側も「決まった 2 行から端まで、何行残っているか」だけで決まる同じ問題なので
-//! （盤は上下反転しても同じ問題）、同じ関数 Half::best で求め、結果を覚えて使い回す。
-
-use rustc_hash::FxHashMap as HashMap;
+//! construct は、真ん中の 2 行を縞の行から選び、そこから下の端へ、続けて上の端へ伸ばす DFS。
+//! 予算以内の縞の解が 1 つ見つかった時点で止める。結果を覚える表は使わないので、メモリは経路の分だけ。
 
 use crate::Board;
-use crate::dfs::{Dfs, trivial};
+use crate::bound::{STRIP_HEIGHT, lower_bounds};
+use crate::dfs::{Dfs, trivial, upper_bound};
 use crate::row::forced_below;
 use crate::stripes::{DEFAULT_MARGIN, Stripes};
 
@@ -31,44 +28,82 @@ pub enum Phase {
     Prove,
 }
 
-/// 決まった 2 行から端へ向かって、残りの行を縞の制限のもとで最小に塗る
-struct Half {
+/// 縞の解を探す DFS。真ん中の 2 行 (a, b) から下の端まで伸ばし、続けて上の端まで伸ばす。
+/// 結果を覚える表は使わず、予算以内の解が 1 つ見つかった時点で止める
+struct Construct {
+    n: usize,
     full: u64,
     stripes: Stripes,
-    /// (上の行, 今の行, 残りの行数) → (残りの行の最小塗り数, そのときの次の行)。塗れなければ None
-    memo: HashMap<(u64, u64, usize), Option<(usize, u64)>>,
+    /// lb[m]: 端に接する m 行に最低限必要な塗り数（bound::lower_bounds の anchored。上下反転しても同じ）
+    lb: Vec<usize>,
+    budget: usize,
+    /// 真ん中の 2 行と、上側の行数
+    a: u64,
+    b: u64,
+    above: usize,
+    /// 行 r+2, r+3, ... と下へ伸ばした行
+    down: Vec<u64>,
+    /// 行 r-1, r-2, ... と上へ伸ばした行
+    up: Vec<u64>,
+    nodes: u64,
 }
 
-impl Half {
-    /// 行 up, cur の先（端の方向）に rem 行を塗るときの最小塗り数。
-    /// cur と、新しく塗る行がすべて条件を満たし、最後の行の先（盤の外）に強制マスがないこと。
-    /// 新しく塗る行のうち、端から margin 行より内側の行は縞の行に限る
-    fn best(&mut self, up: u64, cur: u64, rem: usize) -> Option<usize> {
-        if let Some(&v) = self.memo.get(&(up, cur, rem)) {
-            return v.map(|(c, _)| c);
-        }
-        let v = self.compute(up, cur, rem);
-        self.memo.insert((up, cur, rem), v);
-        v.map(|(c, _)| c)
-    }
-
-    fn compute(&mut self, up: u64, cur: u64, rem: usize) -> Option<(usize, u64)> {
-        let forced = forced_below(self.full, up, cur)?;
+impl Construct {
+    /// 行 prev, cur の先（端の方向）に rem 行を伸ばす。cost はここまでの塗り数、
+    /// reserve はまだ伸ばしていない反対側に最低限必要な塗り数。
+    /// downward なら下側（終わったら上側に移る）、そうでなければ上側
+    fn extend(
+        &mut self,
+        prev: u64,
+        cur: u64,
+        rem: usize,
+        cost: usize,
+        reserve: usize,
+        downward: bool,
+    ) -> bool {
+        self.nodes += 1;
+        let Some(forced) = forced_below(self.full, prev, cur) else {
+            return false;
+        };
         if rem == 0 {
-            // cur が端の行。その先は盤の外なので塗れない
-            return (forced == 0).then_some((0, 0));
+            // cur が端の行。その先は盤の外なので、強制マスがあってはいけない
+            if forced != 0 {
+                return false;
+            }
+            if downward {
+                // 下側が終わったので、盤を上下反転して行 r+1, r = b, a から上へ伸ばす
+                let (a, b, above) = (self.a, self.b, self.above);
+                return self.extend(b, a, above, cost, 0, false);
+            }
+            return true;
         }
-        let mut best: Option<(usize, u64)> = None;
         // 次の行は forced ∪ (cur の部分集合)
         let mut sub = cur;
         loop {
-            let down = forced | sub;
-            // down の先には rem-1 行ある。端から margin 行以内なら自由、それより内側なら縞に限る
-            let allowed = rem - 1 < self.stripes.margin() || self.stripes.is_striped(down);
-            if allowed && let Some(c) = self.best(cur, down, rem - 1) {
-                let c = c + down.count_ones() as usize;
-                if best.is_none_or(|(b, _)| c < b) {
-                    best = Some((c, down));
+            let next = forced | sub;
+            // next の先には rem-1 行ある。端から margin 行以内なら自由、それより内側なら縞に限る
+            let allowed = rem - 1 < self.stripes.margin() || self.stripes.is_striped(next);
+            if allowed
+                && self.fits(
+                    cur,
+                    next,
+                    rem - 1,
+                    cost + next.count_ones() as usize + reserve,
+                )
+            {
+                let c2 = cost + next.count_ones() as usize;
+                if downward {
+                    self.down.push(next);
+                } else {
+                    self.up.push(next);
+                }
+                if self.extend(cur, next, rem - 1, c2, reserve, downward) {
+                    return true;
+                }
+                if downward {
+                    self.down.pop();
+                } else {
+                    self.up.pop();
                 }
             }
             if sub == 0 {
@@ -76,26 +111,28 @@ impl Half {
             }
             sub = (sub - 1) & cur;
         }
-        best
+        false
     }
 
-    /// best で求めた最小の塗り方の行を、端に向かう順に返す
-    fn path(&mut self, mut up: u64, mut cur: u64, mut rem: usize) -> Vec<u64> {
-        let mut rows = Vec::with_capacity(rem);
-        while rem > 0 {
-            self.best(up, cur, rem);
-            let (_, down) =
-                self.memo[&(up, cur, rem)].expect("path is only asked for solvable states");
-            rows.push(down);
-            (up, cur, rem) = (cur, down, rem - 1);
+    /// 行 cur の次に next を置いたとき、その先の rem 行を含めて予算に収まる見込みがあるか（1 行先読み）。
+    /// total はここまでの塗り数と反対側の見積もりの和
+    fn fits(&self, cur: u64, next: u64, rem: usize, total: usize) -> bool {
+        let Some(forced) = forced_below(self.full, cur, next) else {
+            return false;
+        };
+        if rem == 0 {
+            return forced == 0 && total <= self.budget;
         }
-        rows
+        total + self.lb[rem].max(forced.count_ones() as usize + self.lb[rem - 1]) <= self.budget
     }
 }
 
-/// 端以外の行（上下 margin 行と、行の左右 margin 列を除く部分）を縞に制限した解のうち、最小のもの。
-/// 戻り値は (盤面, 覚えた状態の数)。制限のもとで解がない、または盤が小さくて真ん中に縞の行を
-/// 2 行置けないときは None
+/// 端以外の行（上下 margin 行と、行の左右 margin 列を除く部分）を縞に制限した解を 1 つ作る。
+/// 予算は証明済みの上限 ceiling((n+2)^2/3) - 6 から始め、縞の解が見つからなければ 1 つずつ上げる
+/// （上限を示す構成の解も縞の形なので、n >= 7 では最初の予算で見つかるはず）。
+/// 結果を覚える表は使わないので、メモリは経路の分だけで済む。
+/// 戻り値は (盤面, 探索ノード数)。盤が小さくて真ん中に縞の行を 2 行置けない、
+/// または自明な解の個数より少ない予算で見つからないときは None
 pub fn construct(n: usize, margin: usize) -> Option<(Board, usize)> {
     let stripes = Stripes::new(n, margin)?;
     if n < 2 * margin + 2 {
@@ -104,48 +141,59 @@ pub fn construct(n: usize, margin: usize) -> Option<(Board, usize)> {
     // 真ん中の 2 行 r, r+1。どちらも端から margin 行より内側にある
     let r = n / 2 - 1;
     let (above, below) = (r, n - 2 - r);
-    let candidates = stripes.rows();
-    let mut half = Half {
+    let mut candidates = stripes.rows();
+    // 塗り数の少ない行から試す
+    candidates.sort_by_key(|row| row.count_ones());
+    let mut s = Construct {
+        n,
         full: (1u64 << n) - 1,
         stripes,
-        memo: HashMap::default(),
+        lb: lower_bounds(n, STRIP_HEIGHT).anchored,
+        budget: 0,
+        a: 0,
+        b: 0,
+        above,
+        down: Vec::with_capacity(below),
+        up: Vec::with_capacity(above),
+        nodes: 0,
     };
-    let mut best: Option<(usize, u64, u64)> = None;
-    for &a in &candidates {
-        for &b in &candidates {
-            let base = (a.count_ones() + b.count_ones()) as usize;
-            if best.is_some_and(|(c, _, _)| base >= c) {
-                continue;
-            }
-            // 下側: 行 r, r+1 = a, b から下へ。上側: 盤を上下反転して、行 r+1, r = b, a から上へ
-            let Some(bottom) = half.best(a, b, below) else {
-                continue;
-            };
-            let Some(top) = half.best(b, a, above) else {
-                continue;
-            };
-            let total = base + top + bottom;
-            if best.is_none_or(|(c, _, _)| total < c) {
-                best = Some((total, a, b));
+    let start = ((n + 2) * (n + 2))
+        .div_ceil(3)
+        .saturating_sub(6)
+        .max(s.lb[n]);
+    for budget in start..upper_bound(n) {
+        s.budget = budget;
+        for &a in &candidates {
+            for &b in &candidates {
+                let base = (a.count_ones() + b.count_ones()) as usize;
+                if base + s.lb[below] + s.lb[above] > budget {
+                    continue;
+                }
+                (s.a, s.b) = (a, b);
+                s.down.clear();
+                s.up.clear();
+                // 下側: 行 r, r+1 = a, b から下へ。上側に最低限必要な数は予算から差し引いておく
+                let reserve = s.lb[above];
+                if s.extend(a, b, below, base, reserve, true) {
+                    let mut rows: Vec<u64> = s.up.iter().rev().copied().collect();
+                    rows.push(a);
+                    rows.push(b);
+                    rows.extend(s.down.iter().copied());
+                    let mut board = Board::new(s.n);
+                    for (i, &row) in rows.iter().enumerate() {
+                        for c in 0..s.n {
+                            board.painted[i * s.n + c] = row >> c & 1 == 1;
+                        }
+                    }
+                    return Some((board, s.nodes as usize));
+                }
             }
         }
     }
-    let (_, a, b) = best?;
-    let mut rows = half.path(b, a, above);
-    rows.reverse();
-    rows.push(a);
-    rows.push(b);
-    rows.extend(half.path(a, b, below));
-    let mut board = Board::new(n);
-    for (i, &row) in rows.iter().enumerate() {
-        for c in 0..n {
-            board.painted[i * n + c] = row >> c & 1 == 1;
-        }
-    }
-    Some((board, half.memo.len()))
+    None
 }
 
-/// 最小解と探索ノード数（覚えた状態の数と、DFS の探索ノード数の合計）を返す。
+/// 最小解と探索ノード数（解を作る DFS と、証明の DFS の合計）を返す。
 /// margin は縞に制限するときに自由にする上下の行数と左右の列数。
 /// 段階ごとに on_budget(段階, 予算, 塗れたか, 探索ノード数) を呼ぶ
 pub fn solve_by_budget(
@@ -155,7 +203,7 @@ pub fn solve_by_budget(
 ) -> (Board, u64) {
     // 1. 縞に制限して解を作る。作れなければ自明な解から始める
     let (mut best, construct_nodes) = match construct(n, margin) {
-        Some((board, states)) => (board, states as u64),
+        Some((board, nodes)) => (board, nodes as u64),
         None => (trivial(n), 0),
     };
     on_budget(Phase::Construct, best.count(), true, construct_nodes);
@@ -209,13 +257,17 @@ mod tests {
         }
     }
 
-    /// 作った解は条件を満たし、制限のない最小以上
+    /// 作った解は条件を満たし、制限のない最小以上で、証明済みの上限以下
     #[test]
     fn construct_is_valid() {
         for n in 6..=15 {
             let (b, _) = construct(n, DEFAULT_MARGIN).expect("striped solutions exist");
             assert!(b.is_valid(), "n = {n}");
             assert!(Some(b.count()) >= known(n), "n = {n}");
+            assert!(
+                b.count() <= ((n + 2) * (n + 2)).div_ceil(3) - 6 || n < 7,
+                "n = {n}"
+            );
         }
     }
 }
