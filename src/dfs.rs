@@ -51,21 +51,29 @@ impl Dfs {
     /// solve と同じ。予算ごとに on_budget(予算, 塗れたか, その予算での探索ノード数) を呼ぶ
     pub fn solve_by_budget(&mut self, mut on_budget: impl FnMut(usize, bool, u64)) -> Board {
         for budget in self.lb[self.n].. {
-            self.budget = budget;
             let before = self.nodes;
-            let feasible = self.search();
-            on_budget(budget, feasible, self.nodes - before);
-            if feasible {
-                let mut board = Board::new(self.n);
-                for (r, &row) in self.rows.iter().enumerate() {
-                    for c in 0..self.n {
-                        board.painted[r * self.n + c] = row >> c & 1 == 1;
-                    }
-                }
+            let found = self.try_budget(budget);
+            on_budget(budget, found.is_some(), self.nodes - before);
+            if let Some(board) = found {
                 return board;
             }
         }
         unreachable!("painting every cell always satisfies the condition")
+    }
+
+    /// 予算 budget 個以下で塗れるか。塗れたら解を 1 つ返す
+    pub fn try_budget(&mut self, budget: usize) -> Option<Board> {
+        self.budget = budget;
+        if !self.search() {
+            return None;
+        }
+        let mut board = Board::new(self.n);
+        for (r, &row) in self.rows.iter().enumerate() {
+            for c in 0..self.n {
+                board.painted[r * self.n + c] = row >> c & 1 == 1;
+            }
+        }
+        Some(board)
     }
 
     /// 今の予算で塗れるか。塗れたら self.rows に解が残る
@@ -139,6 +147,17 @@ pub fn upper_bound(n: usize) -> usize {
     n * (n / 2 + 1)
 }
 
+/// upper_bound の自明な解（列 0, 2, 4, ... と、n が偶数なら最後の列を塗る）
+pub fn trivial(n: usize) -> Board {
+    let mut b = Board::new(n);
+    for r in 0..n {
+        for c in 0..n {
+            b.painted[r * n + c] = c % 2 == 0 || c == n - 1;
+        }
+    }
+    b
+}
+
 pub fn solve(n: usize) -> Board {
     Dfs::new(n).solve()
 }
@@ -159,12 +178,7 @@ mod tests {
     #[test]
     fn upper_bound_is_achievable() {
         for n in 1..=10 {
-            let mut b = Board::new(n);
-            for r in 0..n {
-                for c in 0..n {
-                    b.painted[r * n + c] = c % 2 == 0 || c == n - 1;
-                }
-            }
+            let b = trivial(n);
             assert!(b.is_valid(), "n = {n}");
             assert_eq!(b.count(), upper_bound(n), "n = {n}");
         }

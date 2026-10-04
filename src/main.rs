@@ -1,7 +1,8 @@
 use std::time::Instant;
 
 use clap::{CommandFactory, Parser, ValueEnum, error::ErrorKind};
-use grid_2fair::{brute, dfs, dp, known};
+use grid_2fair::stripes_dfs::Phase;
+use grid_2fair::{brute, dfs, dp, known, stripes, stripes_dfs};
 
 /// Search algorithm
 #[derive(Clone, Copy, Debug, ValueEnum)]
@@ -12,6 +13,8 @@ enum Algo {
     Dfs,
     /// Budgeted row-by-row DP pruned by strip lower bounds (dp.rs)
     Dp,
+    /// Find a solution among striped rows, then prove one fewer cell is infeasible (stripes_dfs.rs)
+    StripesDfs,
 }
 
 impl Algo {
@@ -22,6 +25,7 @@ impl Algo {
             Algo::Brute => 7,
             Algo::Dfs => 30,
             Algo::Dp => 30,
+            Algo::StripesDfs => 30,
         }
     }
 
@@ -47,9 +51,13 @@ struct Args {
     /// Search algorithm
     #[arg(long, value_enum, default_value_t = Algo::Dfs)]
     algo: Algo,
+    /// Rows and columns left free at each edge when --algo stripes-dfs restricts rows to stripes
+    #[arg(long, default_value_t = stripes::DEFAULT_MARGIN)]
+    margin: usize,
 }
 
-fn run(n: usize, algo: Algo) {
+/// n を解いて結果を表示し、a(n) を返す
+fn run(n: usize, algo: Algo, margin: usize) -> usize {
     let start = Instant::now();
     let (board, nodes) = match algo {
         Algo::Brute => (brute::solve(n), None),
@@ -61,6 +69,26 @@ fn run(n: usize, algo: Algo) {
                     start.elapsed()
                 );
             });
+            (board, Some(nodes))
+        }
+        Algo::StripesDfs => {
+            let (board, nodes) = stripes_dfs::solve_by_budget(
+                n,
+                margin,
+                |phase, budget, feasible, nodes| match phase {
+                    Phase::Construct => println!(
+                        "construct: {budget} cells with striped rows (states: {nodes}, {:.2?})",
+                        start.elapsed()
+                    ),
+                    Phase::Prove => {
+                        let result = if feasible { "feasible" } else { "infeasible" };
+                        println!(
+                            "prove budget {budget}: {result} (nodes: {nodes}, {:.2?})",
+                            start.elapsed()
+                        );
+                    }
+                },
+            );
             (board, Some(nodes))
         }
         Algo::Dp => {
@@ -104,6 +132,7 @@ fn run(n: usize, algo: Algo) {
         println!("nodes: {nodes}");
     }
     println!("time: {elapsed:.2?}");
+    count
 }
 
 fn main() {
@@ -128,10 +157,25 @@ fn main() {
         )
         .exit();
     }
+    let mut results = Vec::new();
     for n in args.n..=to {
         if n > args.n {
             println!();
         }
-        run(n, args.algo);
+        results.push((n, run(n, args.algo, args.margin)));
+        // 1 つ解くたびに、ここまでの結果をまとめて出す（b-file の形式と、OEIS の DATA 欄の形式）。
+        // 途中で止めても、最後に出たまとめをそのまま貼れる
+        print_results(&results);
     }
+}
+
+/// ここまでに解いた (n, a(n)) を、b-file の形式と OEIS の DATA 欄の形式で出す
+fn print_results(results: &[(usize, usize)]) {
+    println!("== results (n a(n)) ==");
+    for (n, a) in results {
+        println!("{n} {a}");
+    }
+    let data: Vec<String> = results.iter().map(|(_, a)| a.to_string()).collect();
+    println!("== data ==");
+    println!("{}", data.join(", "));
 }
