@@ -8,7 +8,7 @@ use grid_2fair::{brute, dfs, dp, known};
 enum Algo {
     /// Brute force over all boards (brute.rs)
     Brute,
-    /// Row-by-row depth-first search (dfs.rs)
+    /// Budgeted row-by-row depth-first search pruned by strip lower bounds (dfs.rs)
     Dfs,
     /// Budgeted row-by-row DP pruned by strip lower bounds (dp.rs)
     Dp,
@@ -20,7 +20,7 @@ impl Algo {
     fn max_n(self) -> usize {
         match self {
             Algo::Brute => 7,
-            Algo::Dfs => 63,
+            Algo::Dfs => 30,
             Algo::Dp => 30,
         }
     }

@@ -5,9 +5,11 @@
 //! このとき塗るマスの最小個数を a(n) とする。
 
 pub mod board;
+pub mod bound;
 pub mod brute;
 pub mod dfs;
 pub mod dp;
+pub mod row;
 
 pub use board::Board;
 
