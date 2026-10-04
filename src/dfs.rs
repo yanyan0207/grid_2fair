@@ -45,9 +45,17 @@ impl Dfs {
 
     /// 予算を下界から 1 つずつ上げ、最初に塗れた予算で解を 1 つ返す
     pub fn solve(&mut self) -> Board {
+        self.solve_by_budget(|_, _, _| {})
+    }
+
+    /// solve と同じ。予算ごとに on_budget(予算, 塗れたか, その予算での探索ノード数) を呼ぶ
+    pub fn solve_by_budget(&mut self, mut on_budget: impl FnMut(usize, bool, u64)) -> Board {
         for budget in self.lb[self.n].. {
             self.budget = budget;
-            if self.search() {
+            let before = self.nodes;
+            let feasible = self.search();
+            on_budget(budget, feasible, self.nodes - before);
+            if feasible {
                 let mut board = Board::new(self.n);
                 for (r, &row) in self.rows.iter().enumerate() {
                     for c in 0..self.n {
@@ -135,10 +143,11 @@ pub fn solve(n: usize) -> Board {
     Dfs::new(n).solve()
 }
 
-/// 最小解と探索ノード数を返す
-pub fn solve_with_nodes(n: usize) -> (Board, u64) {
+/// 最小解と探索ノード数（全予算の合計）を返す。
+/// 予算ごとに on_budget(予算, 塗れたか, その予算での探索ノード数) を呼ぶ
+pub fn solve_by_budget(n: usize, on_budget: impl FnMut(usize, bool, u64)) -> (Board, u64) {
     let mut dfs = Dfs::new(n);
-    let board = dfs.solve();
+    let board = dfs.solve_by_budget(on_budget);
     (board, dfs.nodes())
 }
 

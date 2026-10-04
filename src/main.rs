@@ -54,7 +54,13 @@ fn run(n: usize, algo: Algo) {
     let (board, nodes) = match algo {
         Algo::Brute => (brute::solve(n), None),
         Algo::Dfs => {
-            let (board, nodes) = dfs::solve_with_nodes(n);
+            let (board, nodes) = dfs::solve_by_budget(n, |budget, feasible, nodes| {
+                let result = if feasible { "feasible" } else { "infeasible" };
+                println!(
+                    "budget {budget}: {result} (nodes: {nodes}, {:.2?})",
+                    start.elapsed()
+                );
+            });
             (board, Some(nodes))
         }
         Algo::Dp => {
