@@ -1,6 +1,6 @@
 use std::time::Instant;
 
-use clap::{Parser, ValueEnum};
+use clap::{CommandFactory, Parser, ValueEnum, error::ErrorKind};
 use grid_2fair::{brute, dfs, dp, known};
 
 /// 使う探索アルゴリズム
@@ -12,6 +12,26 @@ enum Algo {
     Dfs,
     /// 予算付きの行単位 DP。帯の下界で枝刈りする（dp.rs）
     Dp,
+}
+
+impl Algo {
+    /// 扱える n の上限。brute は盤面全体を u64 のマスクで表し、
+    /// dfs は 1 行を u64 で表し、dp は 2 行を u64 のキーに詰める
+    fn max_n(self) -> usize {
+        match self {
+            Algo::Brute => 7,
+            Algo::Dfs => 63,
+            Algo::Dp => 30,
+        }
+    }
+
+    /// コマンドラインでの名前（dp など）
+    fn name(self) -> String {
+        self.to_possible_value()
+            .expect("全ての variant をコマンドラインで指定できる")
+            .get_name()
+            .to_owned()
+    }
 }
 
 /// OEIS A344719: 塗っていない全マスがちょうど 2 個の塗ったマスに隣接するよう塗る最小個数
@@ -52,9 +72,9 @@ fn run(n: usize, algo: Algo) {
                         start.elapsed()
                     );
                 },
-                |known, transitions, max_states| {
+                |fixed, transitions, max_states| {
                     println!(
-                        "  復元 {known}/{n} 行 (transitions: {transitions}, max states: {max_states}, {:.2?})",
+                        "  復元 {fixed}/{n} 行 (transitions: {transitions}, max states: {max_states}, {:.2?})",
                         start.elapsed()
                     );
                 },
@@ -79,6 +99,25 @@ fn run(n: usize, algo: Algo) {
 fn main() {
     let args = Args::parse();
     let to = args.to.unwrap_or(args.n);
+    let max = args.algo.max_n();
+    let mut cmd = Args::command();
+    if args.n == 0 || to > max {
+        cmd.error(
+            ErrorKind::ValueValidation,
+            format!(
+                "--algo {} では n と --to を 1..={max} の範囲で指定してください",
+                args.algo.name()
+            ),
+        )
+        .exit();
+    }
+    if to < args.n {
+        cmd.error(
+            ErrorKind::ValueValidation,
+            format!("--to ({to}) は n ({}) 以上にしてください", args.n),
+        )
+        .exit();
+    }
     for n in args.n..=to {
         if n > args.n {
             println!();
