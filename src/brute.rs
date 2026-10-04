@@ -22,7 +22,7 @@ pub fn solve(n: usize) -> Board {
             m = (((ripple ^ m) >> 2) / low) | ripple;
         }
     }
-    unreachable!("全マス塗れば必ず条件を満たす")
+    unreachable!("painting every cell always satisfies the condition")
 }
 
 #[cfg(test)]

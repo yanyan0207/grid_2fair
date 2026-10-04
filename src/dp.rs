@@ -80,7 +80,7 @@ pub fn strip_min(n: usize, h: usize, top_free: bool, bot_free: bool) -> usize {
             }
         }
         if last {
-            assert!(best != INF, "帯の解が存在しない");
+            assert!(best != INF, "the strip has no solution");
             return best as usize;
         }
         cur = next;
@@ -358,7 +358,7 @@ fn pin_far_end(
             }
         },
     );
-    let (x, y) = found.expect("最小解に含まれる端なら、つながる行が見つかる");
+    let (x, y) = found.expect("rows taken from a minimum solution always have a connecting middle");
     // 行 b は y、行 b-1 は x。x が near 側の確定済みの行なら y だけ
     let rows = if b > t { vec![y, x] } else { vec![y] };
     (rows, transitions, max_states)

@@ -1,9 +1,9 @@
 <!doctype html>
-<html lang="en">
+<html lang="ja">
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>A344719 Search</title>
+<title>A344719 の探索</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+JP:wght@400;500;700&family=JetBrains+Mono:wght@400;600&display=swap">
@@ -148,92 +148,92 @@ ul.plain, ol.plain { margin: 0; padding-left: 1.4em; display: grid; gap: 6px; }
 <main>
   <header>
     <div class="eyebrow">grid_2fair / OEIS A344719 / Rust</div>
-    <p class="axis-note">English | <a href="algorithm.ja.html">日本語</a></p>
+    <p class="axis-note"><a href="algorithm.html">English</a> | 日本語</p>
     <div class="hero">
       <div style="display:grid;gap:12px">
-        <h1>Computing a(16)–a(19) with a row-by-row DP</h1>
-        <p class="lead">Paint some cells of an n×n grid so that every unpainted cell is orthogonally adjacent to exactly two painted cells. a(n) is the minimum number of painted cells. Starting from a row-by-row DFS (<code>src/dfs.rs</code>), we moved to a row-by-row DP that prunes with a budget and a lower bound (<code>src/dp.rs</code>) and computed a(16)–a(19), beyond the a(15) listed in the OEIS. This page explains how, step by step.</p>
+        <h1>行単位の DP で a(16)〜a(19) を求める</h1>
+        <p class="lead">n×n の格子のマスをいくつか塗り、塗っていないマスがどれも上下左右でちょうど 2 個の塗ったマスに接するようにします。塗るマスの最小個数が a(n) です。最初に作った行単位の DFS（<code>src/dfs.rs</code>）から、予算と下界で枝を切る行単位の DP（<code>src/dp.rs</code>）へ進めて、OEIS に載っている a(15) の先、a(16)〜a(19) まで求めました。その仕組みを順に説明します。</p>
       </div>
       <figure>
-        <svg id="hero-svg" role="img" aria-label="A minimum solution for n=16"></svg>
-        <figcaption>A minimum solution for n = 16 (102 cells). It is a period-3 diagonal stripe pattern, adjusted only along the edges. The number in each white cell counts its painted orthogonal neighbors; every one is 2.</figcaption>
+        <svg id="hero-svg" role="img" aria-label="n=16 の最小解"></svg>
+        <figcaption>n = 16 の最小解（102 個）。周期 3 の斜めの縞を基本に、端だけを調整した形です。白いマスの数字は上下左右にある塗ったマスの数で、全部 2 になっています。</figcaption>
       </figure>
     </div>
   </header>
 
   <section>
-    <div class="eyebrow">Results</div>
-    <h2>a(16) = 102, a(17) = 115, a(18) = 128, a(19) = 141</h2>
-    <p>When this page was written, the OEIS listed terms up to a(15) (a(12)–a(15) were computed by Bert Dobbelaere in 2021). The same program reproduces a(12)–a(15) and finds the next four terms. Each value is backed by two checks:</p>
+    <div class="eyebrow">結果</div>
+    <h2>a(16) = 102、a(17) = 115、a(18) = 128、a(19) = 141</h2>
+    <p>このページを作った時点で OEIS に載っていたのは a(15) までです（a(12)〜a(15) は Bert Dobbelaere が 2021 年に計算）。a(12)〜a(15) は同じプログラムで再現でき、その先の 4 項を求めました。各値について、次の 2 つを確かめています。</p>
     <ul class="plain">
-      <li><strong>a(n) − 1 cells are not enough</strong>: for every budget from the lower bound up to a(n) − 1, the DP reports "infeasible".</li>
-      <li><strong>a(n) cells suffice</strong>: the board is reconstructed and every cell is checked with <code>Board::is_valid</code>.</li>
+      <li><strong>a(n) − 1 個では塗れない</strong>: 下界から a(n) − 1 までのすべての予算で、DP が「解なし」を返した。</li>
+      <li><strong>a(n) 個で塗れる</strong>: 盤面を復元し、全マスの条件を <code>Board::is_valid</code> で確かめた。</li>
     </ul>
     <div class="table-wrap">
       <table>
-        <thead><tr><th>n</th><th class="num">a(n)</th><th class="num">Diff</th><th>Source</th></tr></thead>
+        <thead><tr><th>n</th><th class="num">a(n)</th><th class="num">差</th><th>出どころ</th></tr></thead>
         <tbody>
-          <tr><td class="mono">12</td><td class="num">60</td><td class="num">9</td><td>OEIS (reproduced)</td></tr>
-          <tr><td class="mono">13</td><td class="num">69</td><td class="num">9</td><td>OEIS (reproduced)</td></tr>
-          <tr><td class="mono">14</td><td class="num">80</td><td class="num">11</td><td>OEIS (reproduced)</td></tr>
-          <tr><td class="mono">15</td><td class="num">91</td><td class="num">11</td><td>OEIS (reproduced)</td></tr>
-          <tr><td class="mono">16</td><td class="num new">102</td><td class="num">11</td><td>this program</td></tr>
-          <tr><td class="mono">17</td><td class="num new">115</td><td class="num">13</td><td>this program</td></tr>
-          <tr><td class="mono">18</td><td class="num new">128</td><td class="num">13</td><td>this program</td></tr>
-          <tr><td class="mono">19</td><td class="num new">141</td><td class="num">13</td><td>this program</td></tr>
-          <tr><td class="mono">20</td><td class="num">≥ 156</td><td class="num">–</td><td>this program (infeasible up to budget 155; unfinished)</td></tr>
+          <tr><td class="mono">12</td><td class="num">60</td><td class="num">9</td><td>OEIS（再現）</td></tr>
+          <tr><td class="mono">13</td><td class="num">69</td><td class="num">9</td><td>OEIS（再現）</td></tr>
+          <tr><td class="mono">14</td><td class="num">80</td><td class="num">11</td><td>OEIS（再現）</td></tr>
+          <tr><td class="mono">15</td><td class="num">91</td><td class="num">11</td><td>OEIS（再現）</td></tr>
+          <tr><td class="mono">16</td><td class="num new">102</td><td class="num">11</td><td>このプログラム</td></tr>
+          <tr><td class="mono">17</td><td class="num new">115</td><td class="num">13</td><td>このプログラム</td></tr>
+          <tr><td class="mono">18</td><td class="num new">128</td><td class="num">13</td><td>このプログラム</td></tr>
+          <tr><td class="mono">19</td><td class="num new">141</td><td class="num">13</td><td>このプログラム</td></tr>
+          <tr><td class="mono">20</td><td class="num">≥ 156</td><td class="num">–</td><td>このプログラム（予算 155 まで解なし。途中）</td></tr>
         </tbody>
       </table>
     </div>
-    <p class="note">From n = 8 the differences are 7, 7, 7, 9, 9, 9, 11, 11, 11, 13, 13, 13: each value repeats three times. If the pattern continues, a(20) = 156, but this has not been verified.</p>
+    <p class="note">差は n = 8 から 7, 7, 7, 9, 9, 9, 11, 11, 11, 13, 13, 13 と、同じ値が 3 回ずつ続いています。このまま続けば a(20) = 156 ですが、まだ確かめていません。</p>
   </section>
 
   <section>
-    <div class="eyebrow">Overview</div>
-    <h2>From a row-by-row DFS to a budgeted row-by-row DP</h2>
+    <div class="eyebrow">流れ</div>
+    <h2>行単位の DFS から、予算付きの行単位 DP へ</h2>
     <ol class="plain">
-      <li><strong>Row-by-row DFS</strong>: decide one row at a time from the top. Once two rows are fixed, most of the next row is forced (ideas 1–5). n = 9 takes 16 s; n = 10 does not finish in 2 minutes.</li>
-      <li><strong>DP (memoization)</strong>: what can happen below depends only on the last two rows, so paths reaching the same two rows are merged.</li>
-      <li><strong>Budget and lower bound</strong>: decide "can it be done within the budget?" and prune with the minimum number of cells the remaining rows need. This brought a(15) down to a few seconds.</li>
-      <li><strong>Less memory</strong>: keep only two tables. Reconstruct the board with DP passes in alternating directions. Merge left-right mirror states to halve the table.</li>
+      <li><strong>行単位の DFS</strong>: 上から 1 行ずつ決める。2 行決まると次の行の大半が強制される（考え方 1〜5）。n = 9 で 16 秒、n = 10 は 2 分で終わらない。</li>
+      <li><strong>DP（メモ化）</strong>: 先の探索は直前の 2 行だけで決まるので、同じ 2 行に来た経路をまとめる。</li>
+      <li><strong>予算と下界</strong>: 「予算以下で塗れるか」を判定し、残りの行に最低限必要な塗り数で枝を切る。これで a(15) が数秒になった。</li>
+      <li><strong>メモリの削減</strong>: 表は 2 枚だけ持つ。盤面は、向きを交互に変える DP で復元する。左右対称で状態を半分にする。</li>
     </ol>
   </section>
 
   <section>
-    <div class="eyebrow">Idea 1</div>
-    <h2>Represent a row as a bit mask and decide rows from the top</h2>
-    <p>Each row is a <code>u64</code> integer; bit c is 1 when column c is painted. The search is depth-first: starting at the top row, it decides which cells of each row to paint.</p>
-    <p>The condition on a cell (if unpainted, exactly two painted neighbors) can be checked only once its four neighbors above, left, right and below are all decided. For a cell in row r, that happens when row r+1 is decided.</p>
+    <div class="eyebrow">考え方 1</div>
+    <h2>1 行をビット列で表し、上から順に決める</h2>
+    <p>各行を <code>u64</code> の整数で表します。列 c を塗ったら c ビット目を 1 にします。上の行から 1 行ずつ「この行のどのマスを塗るか」を決めていく深さ優先探索です。</p>
+    <p>あるマスの条件（塗っていないなら塗った隣がちょうど 2 個）が判定できるのは、上・左・右・下の 4 マスが全部決まったときです。行 r のマスなら、行 r+1 を決めた時点で判定できます。</p>
   </section>
 
   <section>
-    <div class="eyebrow">Idea 2</div>
-    <h2>Once two rows are fixed, most of the next row is forced</h2>
-    <p>Suppose row r and the row r−1 above it are fixed. For an unpainted cell in row r, let s be the number of painted cells above, left and right of it. It then needs 2 − s painted cells directly below. There is only one cell below, so this must be 0 or 1.</p>
+    <div class="eyebrow">考え方 2</div>
+    <h2>2 行決まると、下の行の大半が強制される</h2>
+    <p>行 r とその上の行 r−1 が決まったとします。行 r の塗っていないマスについて、上・左・右にある塗ったマスの数を s とすると、真下に必要な塗りの数は 2 − s です。下は 1 マスしかないので、これは 0 か 1 でなければなりません。</p>
     <div class="cases" id="cases"></div>
-    <p class="note">So for every <strong>unpainted</strong> cell in row r, the cell below is determined. <strong>Painted</strong> cells in row r impose no condition, so only the cells below them are free.</p>
+    <p class="note">つまり行 r の<strong>塗っていない</strong>マスの真下は、塗るかどうかが 1 通りに決まります。行 r の<strong>塗った</strong>マスには条件がないので、その真下だけが自由に選べます。</p>
   </section>
 
   <section>
-    <div class="eyebrow">Idea 3</div>
-    <h2>Only the cells below painted cells are free</h2>
+    <div class="eyebrow">考え方 3</div>
+    <h2>自由なのは「塗ったマスの真下」だけ</h2>
     <div class="cols2">
       <div style="display:grid;gap:12px">
-        <p>In the figure, the unpainted cells of row r (yellow band) determine the forced cells of row r+1 (orange). The dashed boxes sit below painted cells of row r; only these may be painted or not.</p>
-        <p>The candidates for the next row are therefore "forced cells ∪ a subset of the free cells". With k free cells there are 2<sup>k</sup> candidates, far fewer than the 2<sup>n</sup> possible rows.</p>
-        <p>All subsets are enumerated with the bit trick <code>sub = (sub - 1) &amp; cur</code>.</p>
+        <p>右の図では行 r（黄色の帯）の塗っていないマスから、行 r+1 の強制マス（橙）が決まっています。点線枠は行 r の塗ったマスの真下で、ここだけは塗っても塗らなくても構いません。</p>
+        <p>そこで次の行の候補は「強制マス ∪ 自由マスの部分集合」になります。自由マスが k 個なら候補は 2<sup>k</sup> 通りで、行全体の 2<sup>n</sup> 通りよりずっと少なくなります。</p>
+        <p>部分集合はビット演算 <code>sub = (sub - 1) &amp; cur</code> で全部列挙します。</p>
       </div>
       <figure>
-        <svg id="free-svg" role="img" aria-label="Forced and free cells"></svg>
-        <figcaption>Orange cells are forced, dashed boxes are free. The number in each cell of row r is s (painted cells above, left and right).</figcaption>
+        <svg id="free-svg" role="img" aria-label="強制マスと自由マスの図"></svg>
+        <figcaption>橙の塗りは強制、点線枠は自由。行 r の各マスの下の数字は s（上・左・右の塗りの数）です。</figcaption>
       </figure>
     </div>
   </section>
 
   <section>
-    <div class="eyebrow">Idea 4</div>
-    <h2>Compute s for a whole row with bit operations</h2>
-    <p>Let <code>a</code> be the row above, <code>b = cur &lt;&lt; 1</code> the left neighbors and <code>c = cur &gt;&gt; 1</code> the right neighbors. Then, for every bit at once, we can count how many of a, b, c are 1. A bit with s = 1 means "paint below", s = 2 means "do not paint below", and any bit with s = 0 or 3 is a dead end.</p>
+    <div class="eyebrow">考え方 4</div>
+    <h2>s の判定は 1 行まとめてビット演算で</h2>
+    <p>上の行を <code>a</code>、左隣を並べた <code>b = cur &lt;&lt; 1</code>、右隣を並べた <code>c = cur &gt;&gt; 1</code> とすると、各ビットで a, b, c のうち何個が 1 かを一度に計算できます。s が 1 のビットは「下を塗る」、2 のビットは「下を塗らない」、0 や 3 のビットがあれば行き止まりです。</p>
 <pre><code>pub fn forced_below(full: u64, up: u64, cur: u64) -&gt; Option&lt;u64&gt; {
     let a = up;
     let b = (cur &lt;&lt; 1) &amp; full;
@@ -243,29 +243,29 @@ ul.plain, ol.plain { margin: 0; padding-left: 1.4em; display: grid; gap: 6px; }
     let twos = ((a &amp; b) | (b &amp; c) | (a &amp; c)) &amp; !all3;  // s = 2
     let unpainted = !cur &amp; full;
     if unpainted &amp; !(ones | twos) != 0 {
-        return None;                                     // some s is 0 or 3
+        return None;                                     // s = 0 か 3 がある
     }
-    Some(unpainted &amp; ones)                               // cells that must be painted below
+    Some(unpainted &amp; ones)                               // 下に塗りが必要なマス
 }</code></pre>
   </section>
 
   <section>
-    <div class="eyebrow">Idea 5 (first version: dfs.rs)</div>
-    <h2>The last row, and pruning with the best so far</h2>
+    <div class="eyebrow">考え方 5（最初の版: dfs.rs）</div>
+    <h2>最後の行と、暫定最良による枝刈り</h2>
     <ul class="plain">
-      <li><strong>Last row</strong>: nothing outside the board can be painted, so the search fails if the last row has any forced cell below it. If there are none, a solution is complete.</li>
-      <li><strong>Branch and bound</strong>: remember the best count found so far and stop when "painted so far + forced cells of the next row" reaches it. The initial upper bound is the trivial solution that paints every other column, n × (⌊n/2⌋ + 1) cells (for even n the last column is painted too). Each cell of an unpainted column has painted cells to its left and right and none above or below, so the condition always holds.</li>
-      <li><strong>First row</strong>: the row above the first row is outside the board, so it is treated as 0. All 2<sup>n</sup> first rows are tried.</li>
+      <li><strong>最後の行</strong>: 盤の外は塗れないので、最後の行の強制マスが 1 つでもあれば失敗です。強制マスが空なら解が 1 つ完成します。</li>
+      <li><strong>分枝限定</strong>: これまでに見つけた最良の個数を覚えておき、「今までの塗り数 + 次の行の強制マス数」がそれ以上なら、その先は調べません。最初の上限は、列を 1 本おきに全部塗る自明な解の個数 n × (⌊n/2⌋ + 1) です（n が偶数なら最後の列も塗る）。塗っていない列のマスは左右が塗られ、上下は塗られていないので、必ず条件を満たします。</li>
+      <li><strong>1 行目</strong>: 1 行目の上は盤の外なので、上の行を 0 として扱います。1 行目は 2<sup>n</sup> 通りすべてを試します。</li>
     </ul>
   </section>
 
   <section>
-    <div class="eyebrow">Demo (dfs.rs)</div>
-    <h2>Step through the DFS</h2>
-    <p>This runs the same procedure as <code>src/dfs.rs</code> inside the page.</p>
+    <div class="eyebrow">デモ（dfs.rs）</div>
+    <h2>DFS の探索を 1 手ずつ見る</h2>
+    <p><code>src/dfs.rs</code> と同じ手順を、このページの中で動かしています。</p>
     <div class="demo">
       <div class="controls">
-        <label for="sel-n">Board n
+        <label for="sel-n">盤面 n
           <select id="sel-n">
             <option value="3">3</option>
             <option value="4" selected>4</option>
@@ -273,32 +273,32 @@ ul.plain, ol.plain { margin: 0; padding-left: 1.4em; display: grid; gap: 6px; }
             <option value="6">6</option>
           </select>
         </label>
-        <button id="btn-step" class="primary">Step</button>
-        <button id="btn-play">Play</button>
-        <button id="btn-next">To next improvement</button>
-        <button id="btn-reset">Restart</button>
-        <label for="speed">Speed <input id="speed" type="range" min="0" max="4" value="1"></label>
+        <button id="btn-step" class="primary">1 手進む</button>
+        <button id="btn-play">自動再生</button>
+        <button id="btn-next">次の改善まで</button>
+        <button id="btn-reset">最初から</button>
+        <label for="speed">速さ <input id="speed" type="range" min="0" max="4" value="1"></label>
       </div>
       <div class="demo-body">
-        <svg id="demo-svg" role="img" aria-label="Search state"></svg>
+        <svg id="demo-svg" role="img" aria-label="探索の様子"></svg>
         <div class="side">
-          <div class="msg" id="msg" aria-live="polite">Press “Step” to start the search.</div>
+          <div class="msg" id="msg" aria-live="polite">「1 手進む」を押すと探索が始まります。</div>
           <div class="stats">
-            <div class="stat"><span class="k">Nodes searched</span><span class="v" id="st-nodes">0</span></div>
-            <div class="stat"><span class="k">Steps</span><span class="v" id="st-steps">0</span><span class="k" id="st-total"></span></div>
-            <div class="stat"><span class="k">Painted so far</span><span class="v" id="st-painted">0</span></div>
-            <div class="stat"><span class="k">Best so far</span><span class="v" id="st-best">–</span></div>
+            <div class="stat"><span class="k">探索ノード数</span><span class="v" id="st-nodes">0</span></div>
+            <div class="stat"><span class="k">手数</span><span class="v" id="st-steps">0</span><span class="k" id="st-total"></span></div>
+            <div class="stat"><span class="k">いまの塗り数</span><span class="v" id="st-painted">0</span></div>
+            <div class="stat"><span class="k">暫定最良</span><span class="v" id="st-best">–</span></div>
           </div>
           <div class="best-box">
-            <span class="k">Best board so far</span>
-            <svg id="best-svg" role="img" aria-label="Best board so far"></svg>
+            <span class="k">暫定最良の盤面</span>
+            <svg id="best-svg" role="img" aria-label="暫定最良の盤面"></svg>
           </div>
           <div class="legend">
-            <span><i class="sw" style="background:var(--accent);border-color:var(--accent)"></i>Painted cell</span>
-            <span><i class="sw" style="background:var(--force-soft);border-color:var(--force)"></i>Forced in the next row</span>
-            <span><i class="sw" style="border:2px dashed var(--accent)"></i>Free in the next row</span>
-            <span><i class="sw" style="background:var(--forbid-soft)"></i>Cell that cannot be satisfied (dead end)</span>
-            <span><i class="sw" style="background:var(--row-band)"></i>Row being checked</span>
+            <span><i class="sw" style="background:var(--accent);border-color:var(--accent)"></i>塗ったマス</span>
+            <span><i class="sw" style="background:var(--force-soft);border-color:var(--force)"></i>次の行で強制される塗り</span>
+            <span><i class="sw" style="border:2px dashed var(--accent)"></i>次の行で自由に選べるマス</span>
+            <span><i class="sw" style="background:var(--forbid-soft)"></i>条件を満たせないマス（行き止まり）</span>
+            <span><i class="sw" style="background:var(--row-band)"></i>いま判定している行</span>
           </div>
         </div>
       </div>
@@ -306,62 +306,62 @@ ul.plain, ol.plain { margin: 0; padding-left: 1.4em; display: grid; gap: 6px; }
   </section>
 
   <section>
-    <div class="eyebrow">Results (dfs.rs)</div>
-    <h2>DFS measurements</h2>
-    <p>Measured with a release build (<code>cargo run --release -- 3 --to 9 --algo dfs</code>). Nodes are counted as in the demo (number of calls to <code>search</code>).</p>
+    <div class="eyebrow">実行結果（dfs.rs）</div>
+    <h2>DFS の計測</h2>
+    <p>リリースビルド（<code>cargo run --release -- 3 --to 9 --algo dfs</code>）での計測値です。探索ノード数はデモの「探索ノード数」と同じ数え方（<code>search</code> を呼んだ回数）です。</p>
     <div class="table-wrap">
       <table>
-        <thead><tr><th>n</th><th class="num">Result</th><th class="num">OEIS</th><th class="num">Nodes</th><th class="num">Time</th></tr></thead>
+        <thead><tr><th>n</th><th class="num">結果</th><th class="num">OEIS</th><th class="num">探索ノード数</th><th class="num">時間</th></tr></thead>
         <tbody id="results"></tbody>
       </table>
     </div>
-    <p>Each increase of n multiplies the node count and the time by about 50. n = 10 did not finish within 2 minutes.</p>
+    <p>n が 1 増えるごとにノード数も時間も約 50 倍になっています。n = 10 は 2 分以内に終わりませんでした。</p>
   </section>
 
   <section>
-    <div class="eyebrow">Why the DFS is slow</div>
-    <h2>It solves the same state over and over</h2>
-    <p>What can happen from row k+1 down depends only on rows k−1 and k. Rows further up have already been checked and affect the future only through the number of cells painted so far.</p>
-    <p>What is unique in the DFS is the path from row 0 to the current row. Many paths share the last two rows and differ only above, and the search below them is identical. The DFS redid that search every time.</p>
-<pre><code>n = 5, first 3 rows. 8 paths share rows 1 and 2 and differ only in row 0 (4 shown)
+    <div class="eyebrow">DFS が遅い理由</div>
+    <h2>同じ状態を何度も解いている</h2>
+    <p>行 k+1 から下で何ができるかは、行 k−1 と行 k の 2 行だけで決まります。それより上の行は条件の確認が済んでいて、先には「そこまでの塗り数」としてしか影響しません。</p>
+    <p>DFS で一意なのは「行 0 から今の行までの経路」です。直前の 2 行が同じで、上だけが違う経路はたくさんあり、その先はまったく同じ探索になります。DFS はそれを毎回やり直していました。</p>
+<pre><code>n = 5、3 行目まで。行 1, 2 が同じで行 0 だけ違う経路が 8 通りある（4 通りを表示）
 
-row0 #..#.   row0 .###.   row0 ####.   row0 .#..#
-row1 #####   row1 #####   row1 #####   row1 #####
-row2 .....   row2 .....   row2 .....   row2 .....
-painted 7    painted 8    painted 9    painted 7</code></pre>
+行0 #..#.   行0 .###.   行0 ####.   行0 .#..#
+行1 #####   行1 #####   行1 #####   行1 #####
+行2 .....   行2 .....   行2 .....   行2 .....
+塗り数 7    塗り数 8    塗り数 9    塗り数 7</code></pre>
     <ul class="plain">
-      <li>n = 5, first 3 rows: 1,045 DFS paths but only 357 distinct states.</li>
-      <li>n = 9, first 6 rows: about 670 million DFS paths, but at most 80,000 distinct states at any depth.</li>
+      <li>n = 5 で 3 行目まで: DFS の経路 1,045 本に対し、異なる状態は 357 個。</li>
+      <li>n = 9 で 6 行目まで: DFS の経路は約 6.7 億本、異なる状態はどの深さでも 8 万個以下。</li>
     </ul>
   </section>
 
   <section>
     <div class="eyebrow">DP</div>
-    <h2>Use the last two rows as the state and advance row by row, breadth-first</h2>
-    <p>The state is (row above, current row). For row k, a table maps each reachable state to the minimum number of cells painted so far. The table for row k+1 is built from the table for row k using the forced cells and subsets of the free cells. When the same state is produced more than once, only the smaller count is kept.</p>
-    <p>The next table depends only on the current one, so two tables, "current row" and "next row", are enough. The DFS remembers only the current path and uses almost no memory; the DP holds every state of a row but removes all duplication.</p>
+    <h2>直前 2 行を状態にして、行ごとに幅優先で進める</h2>
+    <p>状態を (上の行, 今の行) とし、行 k で到達できる状態と、そこまでの最小塗り数を表にします。行 k の表から、強制マスと自由マスの部分集合で行 k+1 の表を作ります。同じ状態が何度生まれても、塗り数の小さい方だけを残します。</p>
+    <p>次の表は今の表だけから作れます。なので、持つ表は「今の行」と「次の行」の 2 枚で足ります。DFS は今の経路しか覚えないのでメモリはほぼ使いませんが、DP は 1 行分の状態を全部持つ代わりに、重複をなくしています。</p>
   </section>
 
   <section>
-    <div class="eyebrow">Budget and lower bound</div>
-    <h2>Prune with the minimum number of cells the remaining rows need</h2>
-    <p>Instead of searching for the minimum directly, fix a budget B and decide "can it be done with at most B cells?". A state is dropped when the cells painted through row k plus the minimum needed by the remaining rows (the lower bound) exceed the budget.</p>
-<pre><code>// keep a state whose count through row k is c if
+    <div class="eyebrow">予算と下界</div>
+    <h2>残りの行に最低限必要な塗り数で枝を切る</h2>
+    <p>最小値を直接探す代わりに、予算 B を決めて「B 個以下で塗れるか」を判定します。行 k までの塗り数 c と、残りの行に最低限必要な塗り数（下界）の和が予算を超える状態は捨てます。</p>
+<pre><code>// 行 k までの塗り数 c の状態を残す条件
 c + anchored[n - 1 - k] &lt;= budget</code></pre>
-    <h3>A single row gives no bound, so use strips</h3>
-    <p>In horizontal stripes "painted row, empty row, painted row", every cell of the empty row has two painted neighbors above and below and is satisfied. So a single row on its own needs 0 cells. However, two empty rows cannot be adjacent, so a strip of several consecutive rows always needs some painted cells.</p>
+    <h3>1 行ずつでは下界にならないので、帯で考える</h3>
+    <p>「塗った行・空の行・塗った行」の横縞なら、空の行のマスは上下 2 つが塗られていて条件を満たします。なので 1 行単体に必要な塗り数は 0 です。一方、空の行が 2 行続くことはできません。連続した何行かの帯には、必ず塗りが要ります。</p>
     <ul class="plain">
-      <li><strong>S<sub>h</sub></strong>: the minimum for a strip of height h when the rows just outside it may be painted freely. Any solution paints at least this many cells in any h consecutive rows.</li>
-      <li><strong>B<sub>h</sub></strong>: the minimum for a strip of height h touching the bottom edge (nothing below it can be painted).</li>
-      <li>Splitting the remaining m rows into one bottom strip plus several free strips and adding their minimums gives a lower bound. The largest over all splits is used.</li>
+      <li><strong>S<sub>h</sub></strong>: 高さ h の帯で、上下の外側の行を自由に塗れるとみなしたときの最小塗り数。どんな解でも、連続する h 行にはこれ以上塗られている。</li>
+      <li><strong>B<sub>h</sub></strong>: 盤の下端に接する高さ h の帯の最小塗り数（下の外側は塗れない）。</li>
+      <li>残りの m 行を「下端の帯 1 つ + 自由な帯いくつか」に分けて最小値を足せば、下界になる。分け方の中で一番大きいものを使う。</li>
     </ul>
-    <p>The strip minimum is computed by a DP that decides the strip one column at a time from left to right. It is the row-wise forcing rotated by 90°, with 4<sup>h</sup> states (left column, current column). Heights up to h = 9 are used.</p>
-<pre><code>n = 16: lower bound for the bottom m rows (m = 0..16)
+    <p>帯の最小値は、帯を左から右へ 1 列ずつ決める DP で計算します。行単位の強制の計算を 90° 回したもので、状態は (左の列, 今の列) の 4<sup>h</sup> 通りです。h = 9 まで使っています。</p>
+<pre><code>n = 16 で、下端に接する残り m 行の下界（m = 0..16）
 0, 6, 13, 19, 27, 32, 39, 44, 50, 56, 61, 67, 73, 79, 85, 91, 96</code></pre>
-    <p>The bound for all 16 rows is 96, only 6 below the answer 102. With a budget close to the optimum, a state that painted slightly too much near the top exceeds the budget almost immediately.</p>
+    <p>16 行全体の下界は 96 で、答えの 102 との差は 6 しかありません。最適値ぎりぎりの予算で判定すると、上の方で少し塗りすぎた状態はすぐ予算オーバーになります。</p>
     <div class="table-wrap">
       <table>
-        <thead><tr><th>n</th><th class="num">Budget</th><th class="num">No bound (transitions)</th><th class="num">Strip bound (transitions)</th></tr></thead>
+        <thead><tr><th>n</th><th class="num">予算</th><th class="num">下界なし（遷移数）</th><th class="num">帯の下界あり（遷移数）</th></tr></thead>
         <tbody>
           <tr><td class="mono">10</td><td class="num">41</td><td class="num">42,287,984</td><td class="num">11,612</td></tr>
           <tr><td class="mono">11</td><td class="num">50</td><td class="num">241,036,425</td><td class="num">244,772</td></tr>
@@ -369,157 +369,157 @@ c + anchored[n - 1 - k] &lt;= budget</code></pre>
         </tbody>
       </table>
     </div>
-    <p>The budget is raised one at a time from the lower bound. The first budget that is feasible is a(n), and every smaller budget has been shown infeasible.</p>
+    <p>予算は下界から 1 つずつ上げます。最初に「解あり」になった予算が a(n) で、それより小さい予算ではすべて「解なし」が示されたことになります。</p>
   </section>
 
   <section>
-    <div class="eyebrow">The peak of the state count</div>
-    <h2>States peak around the second row from the top</h2>
-    <p>Number of states left in each row's table for n = 16 with budget 102 (measured before the left-right merge).</p>
+    <div class="eyebrow">状態数の山</div>
+    <h2>状態は上から 2 行目あたりで一番多くなる</h2>
+    <p>n = 16、予算 102 で、各行の表に残った状態の数です（左右対称を使う前の計測）。</p>
     <div class="bars" id="row-bars"></div>
-    <p class="axis-note">Bar length is on a log scale.</p>
+    <p class="axis-note">棒の長さは対数目盛です。</p>
     <ul class="plain">
-      <li><strong>Combinations grow early</strong>: the states of row 0 depend only on row 0, at most 2<sup>n</sup> of them. In rows 1 and 2 they become pairs of rows and grow quickly.</li>
-      <li><strong>Pruning tightens further down</strong>: early on, many rows remain and the chained strip bound is loose, so states that painted a little too much survive. As the search goes down, the count accumulates exactly and the bound for the remaining rows becomes accurate.</li>
-      <li><strong>A small rise at the end</strong>: "the last row must have no forced cells" can be checked only at the last row, so states that cannot close off at the bottom survive until then.</li>
+      <li><strong>序盤は組み合わせが増える</strong>: 行 0 の状態は行 0 の値だけで決まり、最大 2<sup>n</sup> 個。行 1、行 2 で「2 行の組」になって一気に増える。</li>
+      <li><strong>進むほど枝刈りがきつくなる</strong>: 序盤は残りの行が多く、帯をつないだ下界が甘いので、少し塗りすぎた状態も生き残る。進むにつれて塗り数が正確に積み上がり、残りの行の下界も正確になる。</li>
+      <li><strong>最後にまた少し増える</strong>: 「最後の行に強制マスがあってはいけない」は最後の行でしか確かめられないので、下端でつながらない状態がそこまで残る。</li>
     </ul>
-    <p class="note">Even with only two tables, this largest table must be held in memory. It sets the memory limit.</p>
+    <p class="note">表を 2 枚にしても、この一番大きい表は持つ必要があります。メモリの上限はここで決まります。</p>
   </section>
 
   <section>
-    <div class="eyebrow">Reconstructing the board</div>
-    <h2>Repeat the DP in alternating directions</h2>
-    <p>With only two tables, the search ends knowing just the minimum and the last two rows. Everything above has been forgotten.</p>
+    <div class="eyebrow">盤面の復元</div>
+    <h2>向きを交互に変えて DP を繰り返す</h2>
+    <p>表を 2 枚しか持たないと、最後にわかるのは最小値と最後の 2 行だけです。それより上の行は忘れています。</p>
     <ol class="plain">
-      <li>Start from the two known bottom rows and run the DP upside down. At the end, the top two rows are fixed.</li>
-      <li>Start from the known top rows and fix the two rows that connect to the known bottom rows.</li>
-      <li>Alternate directions until every row is fixed.</li>
+      <li>確定した下の 2 行から出発し、上下を反転して DP を回す。最後に上の 2 行が確定する。</li>
+      <li>確定した上の行から出発し、下の確定した行につながる 2 行を確定させる。</li>
+      <li>向きを交互に変えて、全行が確定するまで繰り返す。</li>
     </ol>
-    <p>Each pass starts from a single fixed state, so the early blow-up of states does not happen. Each pass costs a few percent of the first DP or less, and memory never exceeds that of the first search.</p>
+    <p>どの回も出発点が 1 状態に固定されるので、序盤の状態の膨らみが起きません。最初の DP の数十分の 1 以下で済み、メモリが最初の判定を超えることもありません。</p>
     <div class="table-wrap">
       <table>
-        <thead><tr><th>n = 17</th><th class="num">Rows fixed</th><th class="num">Transitions</th><th class="num">Max states</th></tr></thead>
+        <thead><tr><th>n = 17</th><th class="num">確定した行</th><th class="num">遷移数</th><th class="num">状態数の最大</th></tr></thead>
         <tbody>
-          <tr><td>Search (budget 115)</td><td class="num">last 2 rows</td><td class="num">3,400,155,908</td><td class="num">109,314,296</td></tr>
-          <tr><td>Pass 1 (from the bottom)</td><td class="num">4 / 17</td><td class="num">13,549,488</td><td class="num">982,349</td></tr>
-          <tr><td>Pass 2 (from the top)</td><td class="num">6 / 17</td><td class="num">1,356,000</td><td class="num">49,479</td></tr>
-          <tr><td>Pass 3</td><td class="num">8 / 17</td><td class="num">429,392</td><td class="num">7,346</td></tr>
+          <tr><td>判定（予算 115）</td><td class="num">最後の 2 行</td><td class="num">3,400,155,908</td><td class="num">109,314,296</td></tr>
+          <tr><td>復元 1 回目（下から）</td><td class="num">4 / 17</td><td class="num">13,549,488</td><td class="num">982,349</td></tr>
+          <tr><td>復元 2 回目（上から）</td><td class="num">6 / 17</td><td class="num">1,356,000</td><td class="num">49,479</td></tr>
+          <tr><td>復元 3 回目</td><td class="num">8 / 17</td><td class="num">429,392</td><td class="num">7,346</td></tr>
           <tr><td>…</td><td class="num">17 / 17</td><td class="num">128</td><td class="num">1</td></tr>
         </tbody>
       </table>
     </div>
-    <p>The whole reconstruction took 0.12 s. Redoing the DP from the top for one row at a time took 245 s, because every pass started from a free first row and repeated the expensive early rows.</p>
+    <p>復元全体で 0.12 秒でした。上から 1 行ずつ DP をやり直す方法（245 秒）では、毎回自由な 1 行目から始めるので、状態が多い序盤を何度も回していました。</p>
   </section>
 
   <section>
-    <div class="eyebrow">Left-right symmetry</div>
-    <h2>Merge states that are mirror images</h2>
-    <p>A state (row above, current row) and the state with both rows mirrored lead to mirror-image searches with the same minimum. Each new state is compared with its mirror and the smaller one is used as the key. The lower bound is symmetric too, so pruning is unaffected.</p>
-    <p>If the final state of the search is the mirrored one, mirroring the solution gives a solution ending in those two rows, so it can be used as the starting point of the reconstruction as is. The reconstruction DP has both ends fixed and is not symmetric, so it does not merge.</p>
+    <div class="eyebrow">左右対称</div>
+    <h2>左右反転で重なる状態を 1 つにまとめる</h2>
+    <p>状態 (上の行, 今の行) と、2 行とも左右反転した状態は、先の探索が鏡写しになるだけで最小塗り数も同じです。次の状態を作るたびに、反転したものと比べて小さい方をキーにします。下界も左右対称なので、枝刈りの判定は変わりません。</p>
+    <p>判定の DP の最後の状態が鏡写しの方でも、解を左右反転すればその 2 行で終わる解になるので、そのまま復元の出発点に使えます。復元の DP は両端が固定されていて左右対称ではないので、まとめません。</p>
     <div class="table-wrap">
       <table>
-        <thead><tr><th>n = 17</th><th class="num">No symmetry</th><th class="num">Left-right merge</th></tr></thead>
+        <thead><tr><th>n = 17</th><th class="num">対称性なし</th><th class="num">左右対称あり</th></tr></thead>
         <tbody>
-          <tr><td>Max states, budget 114 (infeasible)</td><td class="num">27,360,609</td><td class="num">13,682,042</td></tr>
-          <tr><td>Max states, budget 115 (feasible)</td><td class="num">109,314,296</td><td class="num">54,660,545</td></tr>
-          <tr><td>Total time</td><td class="num">31.3 s</td><td class="num">16.3 s</td></tr>
+          <tr><td>予算 114（解なし）の状態数の最大</td><td class="num">27,360,609</td><td class="num">13,682,042</td></tr>
+          <tr><td>予算 115（解あり）の状態数の最大</td><td class="num">109,314,296</td><td class="num">54,660,545</td></tr>
+          <tr><td>合計時間</td><td class="num">31.3 秒</td><td class="num">16.3 秒</td></tr>
         </tbody>
       </table>
     </div>
-    <p>Up-down reflection cannot be used by a DP that advances in one direction from the top. Rotation breaks the row structure and cannot be used either.</p>
+    <p>上下反転は、上から一方向に進む DP では使えません。回転は行という構造を壊すので使えません。</p>
   </section>
 
   <section>
-    <div class="eyebrow">Demo (dp.rs)</div>
-    <h2>Build the DP table one row at a time</h2>
-    <p>This runs the same procedure as the search DP in <code>src/dp.rs</code> inside the page. Unlike the DFS demo, one click builds the whole table for the next row. Each card is one state: the upper strip is row k−1, the lower strip is row k, and the number is the minimum count through row k.</p>
+    <div class="eyebrow">デモ（dp.rs）</div>
+    <h2>DP の表を 1 行ずつ作る</h2>
+    <p><code>src/dp.rs</code> の判定の DP と同じ手順を、このページの中で動かしています。DFS のデモと違い、1 回のクリックで次の行の表を丸ごと作ります。カード 1 枚が 1 つの状態で、上の段が行 k−1、下の段が行 k、下の数字が行 k までの最小塗り数です。</p>
     <div class="demo">
       <div class="controls">
-        <label for="dp-n">Board n
+        <label for="dp-n">盤面 n
           <select id="dp-n">
             <option value="4">4</option>
             <option value="5" selected>5</option>
             <option value="6">6</option>
           </select>
         </label>
-        <label for="dp-budget">Budget <select id="dp-budget"></select></label>
-        <label for="dp-sym"><input id="dp-sym" type="checkbox" checked> Merge mirror states</label>
-        <button id="dp-step" class="primary">Next row</button>
-        <button id="dp-run">Run to end</button>
-        <button id="dp-up">Budget +1</button>
-        <button id="dp-reset">Restart</button>
+        <label for="dp-budget">予算 <select id="dp-budget"></select></label>
+        <label for="dp-sym"><input id="dp-sym" type="checkbox" checked> 左右反転でまとめる</label>
+        <button id="dp-step" class="primary">次の行へ</button>
+        <button id="dp-run">最後まで</button>
+        <button id="dp-up">予算を 1 上げる</button>
+        <button id="dp-reset">最初から</button>
       </div>
       <div class="msg" id="dp-msg" aria-live="polite"></div>
       <div class="stats wide">
-        <div class="stat"><span class="k">Current row k</span><span class="v" id="dp-row">0</span></div>
-        <div class="stat"><span class="k">States in table</span><span class="v" id="dp-size">0</span></div>
-        <div class="stat"><span class="k">Transitions</span><span class="v" id="dp-trans">0</span></div>
-        <div class="stat"><span class="k">Over budget</span><span class="v" id="dp-over">0</span></div>
-        <div class="stat"><span class="k">Same state merged</span><span class="v" id="dp-dup">0</span></div>
-        <div class="stat"><span class="k">Mirror merged</span><span class="v" id="dp-mirror">0</span></div>
-        <div class="stat"><span class="k">Dead ends</span><span class="v" id="dp-dead">0</span></div>
+        <div class="stat"><span class="k">いまの行 k</span><span class="v" id="dp-row">0</span></div>
+        <div class="stat"><span class="k">表の状態数</span><span class="v" id="dp-size">0</span></div>
+        <div class="stat"><span class="k">遷移</span><span class="v" id="dp-trans">0</span></div>
+        <div class="stat"><span class="k">予算超過で捨てた</span><span class="v" id="dp-over">0</span></div>
+        <div class="stat"><span class="k">同じ状態に重なった</span><span class="v" id="dp-dup">0</span></div>
+        <div class="stat"><span class="k">左右反転でまとめた</span><span class="v" id="dp-mirror">0</span></div>
+        <div class="stat"><span class="k">行き止まり</span><span class="v" id="dp-dead">0</span></div>
       </div>
       <div class="dp-cond" id="dp-cond"></div>
       <div class="legend">
-        <span><i class="sw" style="background:var(--code-bg)"></i>Row outside the board (above row 0)</span>
-        <span><i class="sw" style="background:var(--forbid-soft);border-color:var(--forbid)"></i>Row k has a cell that cannot be satisfied; cannot advance</span>
-        <span><i class="sw" style="background:var(--accent-soft);border-color:var(--accent)"></i>Closes off at the bottom edge in the last row (a solution)</span>
+        <span><i class="sw" style="background:var(--code-bg)"></i>盤の外の行（行 0 の上）</span>
+        <span><i class="sw" style="background:var(--forbid-soft);border-color:var(--forbid)"></i>行 k に条件を満たせないマスがあり、次の行へ進めない</span>
+        <span><i class="sw" style="background:var(--accent-soft);border-color:var(--accent)"></i>最後の行で下端につながる（解）</span>
       </div>
       <div class="state-grid" id="dp-states"></div>
     </div>
-    <p class="note">With a budget below the answer, either the table becomes empty on the way or no state closes off at the last row. Raising the budget one at a time, the first feasible budget is a(n).</p>
+    <p class="note">予算を答えより小さくすると、途中で表が空になるか、最後の行で下端につながる状態が残りません。予算を 1 ずつ上げると、a(n) で初めて「解あり」になります。</p>
   </section>
 
   <section>
-    <div class="eyebrow">Results (dp.rs)</div>
-    <h2>DP measurements</h2>
-    <p>Release build on a Core i7-12700F with 32 GB of RAM. The n = 18 and 19 rows are from the first DP version, which kept every table, used the standard hash map and had no symmetry.</p>
+    <div class="eyebrow">実行結果（dp.rs）</div>
+    <h2>DP の計測</h2>
+    <p>リリースビルドで、Core i7-12700F、メモリ 32GB での計測です。n = 18, 19 は、表を全部残し、標準のハッシュで、対称性もない最初の DP 版での値です。</p>
     <div class="table-wrap">
       <table>
-        <thead><tr><th>n</th><th class="num">a(n)</th><th class="num">Transitions at budget a(n)−1</th><th class="num">Max states at budget a(n)</th><th class="num">Total time</th><th>Version</th></tr></thead>
+        <thead><tr><th>n</th><th class="num">a(n)</th><th class="num">予算 a(n)−1 の遷移数</th><th class="num">予算 a(n) の状態数の最大</th><th class="num">合計時間</th><th>版</th></tr></thead>
         <tbody>
-          <tr><td class="mono">16</td><td class="num">102</td><td class="num">9,815,552</td><td class="num">3,324,051</td><td class="num">0.79 s</td><td>latest</td></tr>
-          <tr><td class="mono">17</td><td class="num">115</td><td class="num">329,993,824</td><td class="num">54,660,545</td><td class="num">16.3 s</td><td>latest</td></tr>
-          <tr><td class="mono">18</td><td class="num">128</td><td class="num">701,232,816</td><td class="num">126,622,590</td><td class="num">55.7 s</td><td>first DP</td></tr>
-          <tr><td class="mono">19</td><td class="num">141</td><td class="num">2,649,946,624</td><td class="num">536,865,479</td><td class="num">228 s</td><td>first DP</td></tr>
+          <tr><td class="mono">16</td><td class="num">102</td><td class="num">9,815,552</td><td class="num">3,324,051</td><td class="num">0.79 秒</td><td>最新</td></tr>
+          <tr><td class="mono">17</td><td class="num">115</td><td class="num">329,993,824</td><td class="num">54,660,545</td><td class="num">16.3 秒</td><td>最新</td></tr>
+          <tr><td class="mono">18</td><td class="num">128</td><td class="num">701,232,816</td><td class="num">126,622,590</td><td class="num">55.7 秒</td><td>最初の DP</td></tr>
+          <tr><td class="mono">19</td><td class="num">141</td><td class="num">2,649,946,624</td><td class="num">536,865,479</td><td class="num">228 秒</td><td>最初の DP</td></tr>
         </tbody>
       </table>
     </div>
-    <h3>Memory estimate (latest version, 32 GB)</h3>
-    <p>About 28 bytes per state (<code>FxHashMap&lt;u64, u16&gt;</code>), and two adjacent tables are held, so memory is estimated at about 45 bytes times the size of the largest table. The n = 20 figures are extrapolated from the trend "one more unit of budget means about 4 times as many states".</p>
+    <h3>メモリの見込み（最新版、32GB）</h3>
+    <p>1 状態あたり約 28 バイト（<code>FxHashMap&lt;u64, u16&gt;</code>）で、隣り合う 2 枚を持つので、一番大きい表の状態数 × 約 45 バイトと見積もっています。n = 20 の数は「予算が 1 増えると状態は約 4 倍」という傾向からの予想です。</p>
     <div class="table-wrap">
       <table>
-        <thead><tr><th>n</th><th>Proof side (budget a(n)−1)</th><th>Finding side (budget a(n))</th></tr></thead>
+        <thead><tr><th>n</th><th>証明側（予算 a(n)−1）</th><th>解を見つける側（予算 a(n)）</th></tr></thead>
         <tbody>
-          <tr><td class="mono">19</td><td>about 2.5 GB</td><td>about 12 GB</td></tr>
-          <tr><td class="mono">20</td><td>about 11 GB (estimate)</td><td>about 45 GB (estimate, does not fit)</td></tr>
+          <tr><td class="mono">19</td><td>約 2.5GB</td><td>約 12GB</td></tr>
+          <tr><td class="mono">20</td><td>約 11GB（予想）</td><td>約 45GB（予想、入らない）</td></tr>
         </tbody>
       </table>
     </div>
   </section>
 
   <section>
-    <div class="eyebrow">Code</div>
-    <h2>Files and roles</h2>
+    <div class="eyebrow">コード</div>
+    <h2>ファイルと役割</h2>
     <div class="table-wrap">
       <table>
-        <thead><tr><th>File</th><th>Role</th></tr></thead>
+        <thead><tr><th>ファイル</th><th>役割</th></tr></thead>
         <tbody>
-          <tr><td><code>src/dp.rs</code></td><td>Budgeted row DP. <code>strip_min</code> and <code>lower_bounds</code> build the strip bound, <code>forward</code> is the two-table DP, <code>search</code> decides a budget, <code>reconstruct</code> and <code>pin_far_end</code> rebuild the board</td></tr>
-          <tr><td><code>src/dfs.rs</code></td><td>The first row DFS. <code>forced_below</code> (forced cells) is also used by the DP</td></tr>
-          <tr><td><code>src/brute.rs</code></td><td>Brute force over all 2<sup>n²</sup> boards, for cross-checking (n ≤ 5 or so)</td></tr>
-          <tr><td><code>src/board.rs</code></td><td>The <code>Board</code> type and the validity check <code>is_valid</code></td></tr>
-          <tr><td><code>src/lib.rs</code></td><td>Known OEIS values a(1)–a(15)</td></tr>
-          <tr><td><code>src/main.rs</code></td><td>Command line (<code>n</code>, <code>--to</code>, <code>--algo dp|dfs|brute</code>, default <code>dp</code>). Every result is checked with <code>is_valid</code> before printing</td></tr>
+          <tr><td><code>src/dp.rs</code></td><td>予算付きの行単位 DP。<code>strip_min</code> と <code>lower_bounds</code> が帯の下界、<code>forward</code> が表 2 枚の DP、<code>search</code> が予算の判定、<code>reconstruct</code> と <code>pin_far_end</code> が盤面の復元</td></tr>
+          <tr><td><code>src/dfs.rs</code></td><td>最初の行 DFS。<code>forced_below</code>（強制マスの計算）は DP でも使う</td></tr>
+          <tr><td><code>src/brute.rs</code></td><td>全 2<sup>n²</sup> 通りを調べる総当たり。答え合わせ用（n ≤ 5 程度）</td></tr>
+          <tr><td><code>src/board.rs</code></td><td>盤面 <code>Board</code> と、条件を満たすか確かめる <code>is_valid</code></td></tr>
+          <tr><td><code>src/lib.rs</code></td><td>OEIS の既知の値 a(1)〜a(15)</td></tr>
+          <tr><td><code>src/main.rs</code></td><td>コマンドライン（<code>n</code>、<code>--to</code>、<code>--algo dp|dfs|brute</code>、既定は <code>dp</code>）。表示する前に必ず <code>is_valid</code> で確かめる</td></tr>
         </tbody>
       </table>
     </div>
-    <h3>Not done yet</h3>
+    <h3>まだやっていないこと</h3>
     <ol class="plain">
-      <li><strong>Tighter lower bound</strong>: the gap between the bound and the answer is 6–8 for n = 16–19. One unit of budget changes the state count about fourfold, so tightening the bound by 1 is worth roughly one smaller n. Options include taller strips and a bound that depends on the current row.</li>
-      <li><strong>Compact states</strong>: process states grouped by current row and pack key and count into a single u64 in an array (8 bytes per state).</li>
-      <li><strong>Lighter finding side</strong>: fixing the top two rows to the shape common in optimal solutions would remove the most expensive search at budget a(n).</li>
-      <li><strong>Proof for general n</strong>: prove upper and lower bounds from the "each difference repeats three times" pattern and the diagonal-stripe shape of the solutions.</li>
+      <li><strong>下界をきつくする</strong>: 下界と答えの差は n = 16〜19 で 6〜8。予算 1 の差で状態は約 4 倍変わるので、下界を 1 詰めるのは n を 1 小さくするのとほぼ同じ効果。帯を高くする、今の行に応じた下界にする、など</li>
+      <li><strong>状態を詰めて持つ</strong>: 今の行ごとにグループで処理し、キーと塗り数を u64 1 個に詰めた配列で持つ（1 状態 8 バイト）</li>
+      <li><strong>解を見つける側を軽くする</strong>: 上の 2 行を最適解によくある形に固定して DP を回せば、一番重い予算 a(n) の判定がいらなくなる</li>
+      <li><strong>一般の n での証明</strong>: 差が同じ値を 3 回ずつ繰り返す規則と、斜めの縞の解の形から、上限と下限を理論で示す</li>
     </ol>
   </section>
 </main>
@@ -586,16 +586,16 @@ c + anchored[n - 1 - k] &lt;= budget</code></pre>
   /* ---- 考え方 2: s = 0..3 の 4 ケース ---- */
   (function () {
     const CASES = [
-      { s: 0, up: 0, left: 0, right: 0, need: "needs 2", res: "impossible", cls: "no" },
-      { s: 1, up: 1, left: 0, right: 0, need: "needs 1", res: "paint below (forced)", cls: "force" },
-      { s: 2, up: 1, left: 1, right: 0, need: "needs 0", res: "leave below unpainted", cls: "yes" },
-      { s: 3, up: 1, left: 1, right: 1, need: "needs −1", res: "impossible", cls: "no" },
+      { s: 0, up: 0, left: 0, right: 0, need: "2 個必要", res: "不可能", cls: "no" },
+      { s: 1, up: 1, left: 0, right: 0, need: "1 個必要", res: "下を塗る（強制）", cls: "force" },
+      { s: 2, up: 1, left: 1, right: 0, need: "0 個必要", res: "下は塗らない", cls: "yes" },
+      { s: 3, up: 1, left: 1, right: 1, need: "−1 個必要", res: "不可能", cls: "no" },
     ];
     el("cases").innerHTML = CASES.map(k => {
       const P = 6, C = 34;
       const sq = (r, c, fill, stroke) =>
         `<rect x="${P + c * C}" y="${P + r * C}" width="${C}" height="${C}" fill="${fill}" stroke="${stroke || "var(--grid)"}"/>`;
-      let s = `<svg viewBox="0 0 ${2 * P + 3 * C} ${2 * P + 3 * C}" role="img" aria-label="case s=${k.s}">`;
+      let s = `<svg viewBox="0 0 ${2 * P + 3 * C} ${2 * P + 3 * C}" role="img" aria-label="s=${k.s} のケース">`;
       s += sq(0, 1, k.up ? "var(--accent)" : "var(--surface)");
       s += sq(1, 0, k.left ? "var(--accent)" : "var(--surface)");
       s += sq(1, 2, k.right ? "var(--accent)" : "var(--surface)");
@@ -604,7 +604,7 @@ c + anchored[n - 1 - k] &lt;= budget</code></pre>
       s += sq(2, 1, downFill, k.cls === "force" ? "var(--force)" : "var(--grid)");
       s += `<text x="${P + 1.5 * C}" y="${P + 2.5 * C + 5}" text-anchor="middle" font-size="16" font-weight="600" style="fill:var(--ink)">?</text>`;
       s += `</svg>`;
-      return `<div class="case">${s}<span class="k">s = ${k.s}</span><span class="v">below: ${k.need}</span><span class="tag ${k.cls}">${k.res}</span></div>`;
+      return `<div class="case">${s}<span class="k">s = ${k.s}</span><span class="v">下に ${k.need}</span><span class="tag ${k.cls}">${k.res}</span></div>`;
     }).join("");
   })();
 
@@ -672,29 +672,29 @@ c + anchored[n - 1 - k] &lt;= budget</code></pre>
       const cur = rows[r];
       const forced = forcedBelow(n, up, cur);
       if (forced === null) {
-        yield S("cut", `Row ${r} has a white cell with 0 or 3 painted cells above, left and right. One cell below cannot make it 2, so this is a dead end.`,
+        yield S("cut", `行 ${r} に、上・左・右の塗りが 0 個か 3 個の白マスがある。下 1 マスでは 2 個にできないので行き止まり。`,
           { r, dead: deadCells(n, up, cur), painted: paintedCount });
         return;
       }
       if (r + 1 === n) {
         if (forced !== 0) {
-          yield S("cut", `A white cell in the last row needs a painted cell outside the board. Dead end.`,
+          yield S("cut", `最後の行の白マスが、盤の外に塗りを必要としている。行き止まり。`,
             { r, forced, painted: paintedCount, outside: true });
         } else if (paintedCount < st.best) {
           st.best = paintedCount;
           st.bestRows = rows.slice();
-          yield S("best", `Every cell satisfies the condition. New best: ${paintedCount} painted cells. From now on, branches reaching ${paintedCount} or more are cut.`,
+          yield S("best", `全マスが条件を満たした。塗り ${paintedCount} 個で暫定最良を更新。以後、${paintedCount} 個以上になる枝は切る。`,
             { r, painted: paintedCount });
         }
         return;
       }
       const base = paintedCount + popcount(forced);
       if (base >= st.best) {
-        yield S("cut", `The forced cells of row ${r + 1} alone bring the count to ${base}, not below the best ${st.best}. This branch is skipped.`,
+        yield S("cut", `行 ${r + 1} の強制マスだけで塗りが ${base} 個になり、暫定最良 ${st.best} 以上。この先は調べない。`,
           { r, forced, painted: paintedCount });
         return;
       }
-      yield S("forced", `Row ${r} checked. Row ${r + 1} gets ${popcount(forced)} forced cells and ${popcount(cur)} free cells (${1 << popcount(cur)} choices).`,
+      yield S("forced", `行 ${r} を判定。行 ${r + 1} は強制マス ${popcount(forced)} 個が決まり、自由マスは ${popcount(cur)} 個（${1 << popcount(cur)} 通り）。`,
         { r, forced, free: cur, painted: paintedCount });
       let sub = cur;
       for (;;) {
@@ -702,7 +702,7 @@ c + anchored[n - 1 - k] &lt;= budget</code></pre>
         const next = base + popcount(sub);
         if (next < st.best) {
           rows.push(down);
-          yield S("choose", `Row ${r + 1} chosen (${popcount(down)} painted, ${next} in total).`, { r: r + 1, painted: next });
+          yield S("choose", `行 ${r + 1} を決めた（塗り ${popcount(down)} 個、合計 ${next} 個）。`, { r: r + 1, painted: next });
           yield* search(r + 1, next);
           rows.pop();
         }
@@ -715,11 +715,11 @@ c + anchored[n - 1 - k] &lt;= budget</code></pre>
       const count = popcount(first);
       if (count >= st.best) continue;
       rows.push(first);
-      yield S("choose", `Row 0 is set to ${first.toString(2).padStart(n, "0").split("").reverse().join("")} (${count} painted).`, { r: 0, painted: count });
+      yield S("choose", `1 行目を ${first.toString(2).padStart(n, "0").split("").reverse().join("")} にする（塗り ${count} 個）。`, { r: 0, painted: count });
       yield* search(0, count);
       rows.pop();
     }
-    yield S("done", `Search finished. a(${n}) = ${st.best}.`, { r: -1 });
+    yield S("done", `探索が終わりました。a(${n}) = ${st.best} です。`, { r: -1 });
   }
 
   const svg = el("demo-svg"), bestSvg = el("best-svg"), elMsg = el("msg");
@@ -762,7 +762,7 @@ c + anchored[n - 1 - k] &lt;= budget</code></pre>
 
     el("st-nodes").textContent = snap ? snap.nodes.toLocaleString() : "0";
     el("st-steps").textContent = steps.toLocaleString();
-    el("st-total").textContent = `of ${totalSteps(n).toLocaleString()}`;
+    el("st-total").textContent = `全 ${totalSteps(n).toLocaleString()} 手`;
     el("st-painted").textContent = snap && snap.kind !== "done" ? snap.painted : "–";
     el("st-best").textContent = snap && snap.best !== null ? snap.best : "–";
     if (snap) {
@@ -791,7 +791,7 @@ c + anchored[n - 1 - k] &lt;= budget</code></pre>
     n = +el("sel-n").value;
     gen = searchSteps(n); snap = null; steps = 0; finished = false;
     render();
-    elMsg.textContent = "Press “Step” to start the search.";
+    elMsg.textContent = "「1 手進む」を押すと探索が始まります。";
     elMsg.className = "msg";
   }
   const SPEEDS = [[800, 1], [300, 1], [90, 1], [30, 1], [16, 40]];
@@ -802,12 +802,12 @@ c + anchored[n - 1 - k] &lt;= budget</code></pre>
       for (let i = 0; i < per; i++) { const s = advance(); if (!s) break; if (s.kind === "best" && per > 1) break; }
       render();
     }, ms);
-    el("btn-play").textContent = "Stop";
+    el("btn-play").textContent = "停止";
   }
   function stop() {
     if (timer) clearInterval(timer);
     timer = null;
-    el("btn-play").textContent = "Play";
+    el("btn-play").textContent = "自動再生";
   }
   el("btn-step").addEventListener("click", () => { stop(); advance(); render(); });
   el("btn-play").addEventListener("click", () => { if (timer) stop(); else if (!finished) play(); });
@@ -927,7 +927,7 @@ c + anchored[n - 1 - k] &lt;= budget</code></pre>
         if (c + lb[n - 1] > budget) st.over++; else insert(st.table, seen, 0, row, c);
       }
       msg.className = "msg";
-      msg.textContent = `Of the ${full + 1} candidates for row 0, ${st.over} exceed the budget and are dropped; ${st.table.size} states enter the table. Press “Next row” to build the table for row 1.`;
+      msg.textContent = `行 0 の候補 ${full + 1} 通りのうち、予算を超える ${st.over} 個を捨て、${st.table.size} 状態を表に入れた。「次の行へ」で行 1 の表を作る。`;
       render();
     }
 
@@ -937,7 +937,7 @@ c + anchored[n - 1 - k] &lt;= budget</code></pre>
       if (st.table.size === 0) {
         st.done = true;
         msg.className = "msg cut";
-        msg.textContent = `The table is empty. Budget ${budget} is not enough (infeasible).`;
+        msg.textContent = `表が空になった。予算 ${budget} では塗れない（解なし）。`;
         render();
         return;
       }
@@ -947,11 +947,11 @@ c + anchored[n - 1 - k] &lt;= budget</code></pre>
         st.done = true;
         if (cnt > 0) {
           msg.className = "msg best";
-          msg.textContent = `${cnt} states have no forced cells below the last row, so they close off at the bottom edge. Feasible, minimum ${min}.` +
-            (min === KNOWN[n] ? ` Raising the budget from the lower bound, this is the first feasible one, so a(${n}) = ${min}.` : "");
+          msg.textContent = `最後の行に強制マスがない（下端につながる）状態が ${cnt} 個ある。解あり、最小 ${min} 個。` +
+            (min === KNOWN[n] ? ` 予算を下界から上げて最初に解ありになるのがここで、a(${n}) = ${min}。` : "");
         } else {
           msg.className = "msg cut";
-          msg.textContent = `No state closes off at the bottom edge. Budget ${budget} is not enough (infeasible). Try a higher budget.`;
+          msg.textContent = `下端につながる状態がない。予算 ${budget} では塗れない（解なし）。予算を上げてみてください。`;
         }
         render();
         return;
@@ -973,8 +973,8 @@ c + anchored[n - 1 - k] &lt;= budget</code></pre>
       st.k++;
       st.table = next;
       msg.className = "msg";
-      msg.textContent = `Built the table for row ${st.k}. Skipped ${st.dead} dead-end states; of ${st.trans} transitions, ${st.over} exceeded the budget; ` +
-        `after merging duplicates, ${next.size} states remain.` + (st.k === n - 1 ? " This is the last row. Press again to check whether it closes off at the bottom edge." : "");
+      msg.textContent = `行 ${st.k} の表を作った。行き止まりの状態 ${st.dead} 個を飛ばし、${st.trans} 通りの遷移のうち予算超過 ${st.over} 個を捨て、` +
+        `重なった状態をまとめて ${next.size} 状態が残った。` + (st.k === n - 1 ? " これが最後の行。もう一度押すと下端につながるかを判定する。" : "");
       render();
     }
 
@@ -1000,7 +1000,7 @@ c + anchored[n - 1 - k] &lt;= budget</code></pre>
       ui("dp-dup").textContent = st.dup;
       ui("dp-mirror").textContent = st.mirror;
       ui("dp-dead").textContent = st.dead;
-      ui("dp-cond").textContent = `Keep if: painted through row ${k} + lower bound ${lb[n - 1 - k]} for the remaining ${n - 1 - k} rows ≤ budget ${budget}`;
+      ui("dp-cond").textContent = `残す条件: 行 ${k} までの塗り数 + 残り ${n - 1 - k} 行の下界 ${lb[n - 1 - k]} ≤ 予算 ${budget}`;
       const LIMIT = 60;
       const items = [...st.table.values()].sort((a, b) => a.c - b.c || rawKey(a.up, a.cur) - rawKey(b.up, b.cur));
       const final = st.done && k === n - 1;
@@ -1008,7 +1008,7 @@ c + anchored[n - 1 - k] &lt;= budget</code></pre>
         const f = forcedBelow(n, e.up, e.cur);
         const cls = final ? (f === 0 ? "ok" : "ng") : f === null ? "dead" : "";
         return `<div class="st ${cls}">${mini(n, e.up, e.cur, k === 0)}<span>${e.c}</span></div>`;
-      }).join("") + (items.length > LIMIT ? `<div class="more">${items.length - LIMIT} more states</div>` : "");
+      }).join("") + (items.length > LIMIT ? `<div class="more">ほか ${items.length - LIMIT} 状態</div>` : "");
     }
 
     ui("dp-step").addEventListener("click", step);
@@ -1031,7 +1031,7 @@ c + anchored[n - 1 - k] &lt;= budget</code></pre>
     const maxLog = Math.log10(Math.max(...ROWS));
     const peak = Math.max(...ROWS);
     el("row-bars").innerHTML = ROWS.map((v, r) =>
-      `<div class="bar-row"><span class="k">row ${r}</span>` +
+      `<div class="bar-row"><span class="k">行 ${r}</span>` +
       `<div class="track"><div class="fill${v === peak ? " peak" : ""}" style="width:${(Math.log10(v) / maxLog * 100).toFixed(1)}%"></div></div>` +
       `<span class="v">${v.toLocaleString()}</span></div>`
     ).join("");
@@ -1040,7 +1040,7 @@ c + anchored[n - 1 - k] &lt;= budget</code></pre>
   /* ---- 結果表 ---- */
   const RES = [[3, 5, 5, 34, "5.2 µs"], [4, 8, 8, 258, "4.2 µs"], [5, 11, 11, 1969, "24 µs"],
                [6, 17, 17, 54441, "0.49 ms"], [7, 21, 21, 630496, "5.8 ms"], [8, 28, 28, 31878503, "0.30 s"],
-               [9, 35, 35, 1730460358, "16.0 s"], [10, null, 42, null, "> 120 s"]];
+               [9, 35, 35, 1730460358, "16.0 s"], [10, null, 42, null, "120 s 超"]];
   el("results").innerHTML = RES.map(([n, got, oeis, nodes, t]) =>
     `<tr><td class="mono">${n}</td><td class="num">${got ?? "–"}</td><td class="num">${oeis}</td>` +
     `<td class="num">${nodes === null ? "–" : nodes.toLocaleString()}</td><td class="num">${t}</td></tr>`

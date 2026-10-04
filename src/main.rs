@@ -3,14 +3,14 @@ use std::time::Instant;
 use clap::{CommandFactory, Parser, ValueEnum, error::ErrorKind};
 use grid_2fair::{brute, dfs, dp, known};
 
-/// 使う探索アルゴリズム
+/// Search algorithm
 #[derive(Clone, Copy, Debug, ValueEnum)]
 enum Algo {
-    /// 全パターンを調べる総当たり（brute.rs）
+    /// Brute force over all boards (brute.rs)
     Brute,
-    /// 行単位の深さ優先探索（dfs.rs）
+    /// Row-by-row depth-first search (dfs.rs)
     Dfs,
-    /// 予算付きの行単位 DP。帯の下界で枝刈りする（dp.rs）
+    /// Budgeted row-by-row DP pruned by strip lower bounds (dp.rs)
     Dp,
 }
 
@@ -28,22 +28,23 @@ impl Algo {
     /// コマンドラインでの名前（dp など）
     fn name(self) -> String {
         self.to_possible_value()
-            .expect("全ての variant をコマンドラインで指定できる")
+            .expect("every variant is selectable on the command line")
             .get_name()
             .to_owned()
     }
 }
 
-/// OEIS A344719: 塗っていない全マスがちょうど 2 個の塗ったマスに隣接するよう塗る最小個数
+/// OEIS A344719: minimum number of painted cells in an n x n grid so that
+/// every unpainted cell is orthogonally adjacent to exactly two painted cells
 #[derive(Parser, Debug)]
 #[command(version, about)]
 struct Args {
-    /// 盤面サイズ n。--to と併用すると開始サイズ
+    /// Board size n (the first size when used with --to)
     n: usize,
-    /// 終了サイズ。n から to まで順に解く
+    /// Last board size; solves n, n+1, ..., to in order
     #[arg(long)]
     to: Option<usize>,
-    /// 探索アルゴリズム
+    /// Search algorithm
     #[arg(long, value_enum, default_value_t = Algo::Dp)]
     algo: Algo,
 }
@@ -61,9 +62,9 @@ fn run(n: usize, algo: Algo) {
                 n,
                 |budget, o| {
                     let result = if o.min.is_some() {
-                        "解あり"
+                        "feasible"
                     } else {
-                        "解なし"
+                        "infeasible"
                     };
                     println!(
                         "budget {budget}: {result} (transitions: {}, max states: {}, {:.2?})",
@@ -74,7 +75,7 @@ fn run(n: usize, algo: Algo) {
                 },
                 |fixed, transitions, max_states| {
                     println!(
-                        "  復元 {fixed}/{n} 行 (transitions: {transitions}, max states: {max_states}, {:.2?})",
+                        "  reconstructed {fixed}/{n} rows (transitions: {transitions}, max states: {max_states}, {:.2?})",
                         start.elapsed()
                     );
                 },
@@ -83,7 +84,10 @@ fn run(n: usize, algo: Algo) {
         }
     };
     let elapsed = start.elapsed();
-    assert!(board.is_valid(), "解が条件を満たしていない");
+    assert!(
+        board.is_valid(),
+        "the solution does not satisfy the condition"
+    );
     print!("{board}");
     let count = board.count();
     match known(n) {
@@ -105,7 +109,7 @@ fn main() {
         cmd.error(
             ErrorKind::ValueValidation,
             format!(
-                "--algo {} では n と --to を 1..={max} の範囲で指定してください",
+                "with --algo {}, n and --to must be in 1..={max}",
                 args.algo.name()
             ),
         )
@@ -114,7 +118,7 @@ fn main() {
     if to < args.n {
         cmd.error(
             ErrorKind::ValueValidation,
-            format!("--to ({to}) は n ({}) 以上にしてください", args.n),
+            format!("--to ({to}) must be at least n ({})", args.n),
         )
         .exit();
     }
