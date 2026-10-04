@@ -266,6 +266,13 @@ fn forward(
 
 /// budget 個以下で塗れるかを判定する
 pub fn search(n: usize, budget: usize, bounds: &Bounds) -> Outcome {
+    // 盤も条件も左右対称なので、左右反転で重なる状態をまとめる。
+    // 最後の状態が鏡写しになっていても、解を左右反転すればその最後の 2 行を持つ解になる
+    search_impl(n, budget, bounds, true)
+}
+
+/// search の本体。symmetric を切れるようにしてあるのは、テストでまとめない場合と比べるため
+fn search_impl(n: usize, budget: usize, bounds: &Bounds, symmetric: bool) -> Outcome {
     let full = (1u64 << n) - 1;
     let lb = &bounds.anchored;
     let mut min: Option<(usize, u64)> = None;
@@ -274,9 +281,7 @@ pub fn search(n: usize, budget: usize, bounds: &Bounds) -> Outcome {
         (0..=full).map(|row| (0, row, row.count_ones() as usize)),
         0,
         n - 1,
-        // 盤も条件も左右対称なので、左右反転で重なる状態をまとめる。
-        // 最後の状態が鏡写しになっていても、解を左右反転すればその最後の 2 行を持つ解になる
-        true,
+        symmetric,
         |k, c| c + lb[n - 1 - k] <= budget,
         |up, cur, c| {
             // 盤外の行は塗れないので、最後の行に強制マスがあってはいけない
@@ -450,8 +455,43 @@ mod tests {
 
     #[test]
     fn matches_dfs() {
-        for n in 1..=6 {
+        for n in 1..=7 {
             assert_eq!(solve(n).count(), dfs::solve(n).count(), "n = {n}");
+        }
+    }
+
+    #[test]
+    fn mirror_roundtrip() {
+        for n in 1..=30 {
+            let full = (1u64 << n) - 1;
+            for row in [0, 1, full, full >> 1, 0b1011 & full] {
+                assert_eq!(mirror(n, mirror(n, row)), row, "n = {n}, row = {row:b}");
+                assert_eq!(
+                    mirror(n, row).count_ones(),
+                    row.count_ones(),
+                    "n = {n}, row = {row:b}"
+                );
+            }
+            // 左端の 1 ビットは右端に移る
+            assert_eq!(mirror(n, 1), 1 << (n - 1), "n = {n}");
+        }
+    }
+
+    /// 左右反転で重なる状態をまとめても、まとめない場合と判定結果が変わらない
+    #[test]
+    fn symmetric_matches_plain() {
+        for n in 1..=12 {
+            let lb = lower_bounds(n, STRIP_HEIGHT);
+            let a = known(n).unwrap();
+            for budget in lb.anchored[n]..=a {
+                let sym = search_impl(n, budget, &lb, true);
+                let plain = search_impl(n, budget, &lb, false);
+                assert_eq!(
+                    sym.min.map(|(c, _)| c),
+                    plain.min.map(|(c, _)| c),
+                    "n = {n}, budget = {budget}"
+                );
+            }
         }
     }
 
