@@ -28,6 +28,17 @@ pub enum Phase {
     Prove,
 }
 
+/// Construct::extend の 1 段で、次の行を選ぶときに使う値
+struct Step {
+    cur: u64,
+    forced: u64,
+    /// ここまでの塗り数 + forced の数
+    base: usize,
+    rem: usize,
+    reserve: usize,
+    downward: bool,
+}
+
 /// 縞の解を探す DFS。真ん中の 2 行 (a, b) から下の端まで伸ばし、続けて上の端まで伸ばす。
 /// 結果を覚える表は使わず、予算以内の解が 1 つ見つかった時点で止める
 struct Construct {
@@ -77,39 +88,59 @@ impl Construct {
             }
             return true;
         }
-        // 次の行は forced ∪ (cur の部分集合)
-        let mut sub = cur;
-        loop {
-            let next = forced | sub;
-            // next の先には rem-1 行ある。端から margin 行以内なら自由、それより内側なら縞に限る
-            let allowed = rem - 1 < self.stripes.margin() || self.stripes.is_striped(next);
-            if allowed
-                && self.fits(
-                    cur,
-                    next,
-                    rem - 1,
-                    cost + next.count_ones() as usize + reserve,
-                )
-            {
-                let c2 = cost + next.count_ones() as usize;
-                if downward {
-                    self.down.push(next);
-                } else {
-                    self.up.push(next);
-                }
-                if self.extend(cur, next, rem - 1, c2, reserve, downward) {
+        // 次の行は forced ∪ (cur の部分集合)。部分集合で足すマスは予算の余裕の個数までしか足せないので、
+        // 余裕を先に求め、その個数までの部分集合だけを作る
+        let base = cost + forced.count_ones() as usize;
+        let Some(slack) = self.budget.checked_sub(base + reserve + self.lb[rem - 1]) else {
+            return false;
+        };
+        let mut bits = [0u64; 64];
+        let mut len = 0;
+        let mut m = cur;
+        while m != 0 {
+            bits[len] = m.isolate_lowest_one();
+            m &= m - 1;
+            len += 1;
+        }
+        let ctx = Step {
+            cur,
+            forced,
+            base,
+            rem,
+            reserve,
+            downward,
+        };
+        self.choose(&ctx, &bits[..len], 0, 0, slack)
+    }
+
+    /// extend の続き。cur の塗ったマスの真下のうち bits[start..] から、あと left 個まで選んで足す。
+    /// 選んだ組み合わせ chosen ごとに、次の行 forced ∪ chosen を試す
+    fn choose(&mut self, s: &Step, bits: &[u64], start: usize, chosen: u64, left: usize) -> bool {
+        let next = s.forced | chosen;
+        let c2 = s.base + chosen.count_ones() as usize;
+        // next の先には rem-1 行ある。端から margin 行以内なら自由、それより内側なら縞に限る
+        let allowed = s.rem - 1 < self.stripes.margin() || self.stripes.is_striped(next);
+        if allowed && self.fits(s.cur, next, s.rem - 1, c2 + s.reserve) {
+            if s.downward {
+                self.down.push(next);
+            } else {
+                self.up.push(next);
+            }
+            if self.extend(s.cur, next, s.rem - 1, c2, s.reserve, s.downward) {
+                return true;
+            }
+            if s.downward {
+                self.down.pop();
+            } else {
+                self.up.pop();
+            }
+        }
+        if left > 0 {
+            for i in start..bits.len() {
+                if self.choose(s, bits, i + 1, chosen | bits[i], left - 1) {
                     return true;
                 }
-                if downward {
-                    self.down.pop();
-                } else {
-                    self.up.pop();
-                }
             }
-            if sub == 0 {
-                break;
-            }
-            sub = (sub - 1) & cur;
         }
         false
     }

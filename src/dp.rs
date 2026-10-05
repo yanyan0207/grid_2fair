@@ -21,7 +21,7 @@ use rustc_hash::FxHashMap as HashMap;
 
 use crate::Board;
 use crate::bound::{Bounds, STRIP_HEIGHT, lower_bounds};
-use crate::row::{forced_below, mirror};
+use crate::row::{for_each_subset_upto, forced_below, mirror};
 
 /// 1 回の予算判定の結果
 pub struct Outcome {
@@ -68,6 +68,8 @@ pub fn table_states(table: &Table) -> usize {
 /// keep(k, c, forced): 行 k までの塗り数が c で、行 k+1 の強制マスが forced 個の状態を残すか。
 /// 行 k の条件を満たせない状態（forced_below が None）は、keep を呼ばずに表に入れない。
 /// 行 last の各状態について on_last(今の行, forced, 塗り数) を呼ぶ。
+/// extra(k, base): 行 k の候補で、強制マスまでの塗り数が base のとき、部分集合で足してよいマスの数の上限
+/// （予算の余裕。None なら候補はない）。この個数までの部分集合だけを作る。
 /// 行 k の表ができるたびに on_row(k, 表, 集計) を呼ぶ（計測用）。
 /// 次の行の表は今の行の表だけから作れるので、表は 2 枚だけ持つ。
 /// symmetric なら、左右反転で重なる状態を 1 つにまとめる（問題全体が左右対称なときだけ使える）。
@@ -80,6 +82,7 @@ fn forward(
     last: usize,
     symmetric: bool,
     keep: impl Fn(usize, usize, usize) -> bool,
+    extra: impl Fn(usize, usize) -> Option<usize>,
     mut on_last: impl FnMut(u64, u64, usize),
     on_row: &mut dyn FnMut(usize, &Table, &RowStats),
 ) -> (u64, usize) {
@@ -125,10 +128,13 @@ fn forward(
         let mut next = Table::default();
         let mut stats = RowStats::default();
         for (&cur, group) in &table {
-            // 次の行は forced ∪ (cur の部分集合)。部分集合の列挙は同じ cur の状態で共有する
-            let mut sub = cur;
-            loop {
-                for &(forced, v) in group {
+            for &(forced, v) in group {
+                // 次の行は forced ∪ (cur の部分集合)。予算の余裕の個数までの部分集合だけを作る
+                let base = v as usize + forced.count_ones() as usize;
+                let Some(limit) = extra(k + 1, base) else {
+                    continue;
+                };
+                for_each_subset_upto(cur, limit, &mut |sub| {
                     let down = forced as u64 | sub;
                     stats.transitions += 1;
                     admit(
@@ -137,13 +143,9 @@ fn forward(
                         k + 1,
                         cur,
                         down,
-                        v as usize + down.count_ones() as usize,
+                        base + sub.count_ones() as usize,
                     );
-                }
-                if sub == 0 {
-                    break;
-                }
-                sub = (sub - 1) & cur;
+                });
             }
         }
         // 行 k の表はもう使わないので捨てる
@@ -208,6 +210,8 @@ fn search_impl(
         n - 1,
         symmetric,
         |k, c, forced| search_need(n, lb, k, c, forced).is_some_and(|need| need <= budget),
+        // 行 k の候補が予算に収まるには、少なくとも 塗り数 + 行 k より下の下界 <= 予算
+        |k, base| budget.checked_sub(base + lb[n - 1 - k]),
         |cur, forced, c| {
             // 盤外の行は塗れないので、最後の行に強制マスがあってはいけない
             if forced == 0 && min.is_none_or(|(m, _)| c < m) {
@@ -280,6 +284,15 @@ fn pin_far_end(
                 // 確定済みの行の分は far_cost に含まれているので足さない
                 c + far_cost <= total
             }
+        },
+        // keep の見積もりのうち、強制マスによらない部分で、足してよい個数の上限を決める
+        |k, base| {
+            let need = if k < b {
+                lb[n - 1 - k].max(free[b - k] + far_cost)
+            } else {
+                far_cost
+            };
+            total.checked_sub(base + need)
         },
         // 行 b の状態 (y, forced)。forced は y の真下（far 側）の強制マス
         |y, forced, c| {

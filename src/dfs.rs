@@ -127,22 +127,63 @@ impl Dfs {
             return true;
         }
         let forced = forced_below(self.full, up, cur).expect("admit checked this state");
-        // cur の部分集合を全て列挙する
-        let mut sub = cur;
-        loop {
-            let down = forced | sub;
-            let w = c + down.count_ones() as usize;
-            if self.admit(k + 1, cur, down, w) {
-                self.rows.push(down);
-                if self.rec(k + 1, cur, down, w) {
+        // 次の行は forced ∪ (cur の部分集合)。部分集合で足すマスは 1 個ずつ塗り数を増やすので、
+        // 予算の余裕の個数までしか足せない。余裕を先に求め、その個数までの部分集合だけを作る
+        // （全部の部分集合を作ってから予算と比べると、余裕 0 のときも 2^|cur| 通りを作ってしまう）
+        let base = c + forced.count_ones() as usize;
+        let below = self.lb[self.n - 2 - k]; // 行 k+2 から下の行数の下界
+        let Some(slack) = self.budget.checked_sub(base + below) else {
+            return false;
+        };
+        let mut bits = [0u64; 64];
+        let mut len = 0;
+        let mut rest = cur;
+        while rest != 0 {
+            bits[len] = rest.isolate_lowest_one();
+            rest &= rest - 1;
+            len += 1;
+        }
+        self.choose(k, cur, forced, base, &bits[..len], 0, 0, slack)
+    }
+
+    /// rec の続き。cur の塗ったマスの真下のうち bits[start..] から、あと left 個まで選んで足す。
+    /// 選んだ組み合わせ chosen ごとに、次の行 forced ∪ chosen を試す（塗り数の少ないものから）
+    #[allow(clippy::too_many_arguments)]
+    fn choose(
+        &mut self,
+        k: usize,
+        cur: u64,
+        forced: u64,
+        base: usize,
+        bits: &[u64],
+        start: usize,
+        chosen: u64,
+        left: usize,
+    ) -> bool {
+        let down = forced | chosen;
+        let w = base + chosen.count_ones() as usize;
+        if self.admit(k + 1, cur, down, w) {
+            self.rows.push(down);
+            if self.rec(k + 1, cur, down, w) {
+                return true;
+            }
+            self.rows.pop();
+        }
+        if left > 0 {
+            for i in start..bits.len() {
+                if self.choose(
+                    k,
+                    cur,
+                    forced,
+                    base,
+                    bits,
+                    i + 1,
+                    chosen | bits[i],
+                    left - 1,
+                ) {
                     return true;
                 }
-                self.rows.pop();
             }
-            if sub == 0 {
-                break;
-            }
-            sub = (sub - 1) & cur;
         }
         false
     }
