@@ -9,9 +9,17 @@
 use std::collections::HashMap;
 use std::sync::{Mutex, OnceLock};
 
-/// 帯の高さの上限。帯が高いほど帯どうしのつなぎ目が減って下界がきつくなる。
+/// 帯の高さの上限の最小値。帯が高いほど帯どうしのつなぎ目が減って下界がきつくなる。
 /// n = 19〜21 では 9 から 12 に上げると証明の探索が最大 5 倍軽くなり、14 にしても変わらなかった
 pub const STRIP_HEIGHT: usize = 12;
+
+/// 盤 n の帯の高さの上限。max(STRIP_HEIGHT, ceil((n-1)/2))。
+/// 探索のノードが集中する上の方の行では、残りの行が n-2 行前後ある。
+/// 帯の高さが ceil((n-1)/2) 以上なら、どの行でも残りの行を 2 本以内の帯で覆え、つなぎ目が 1 つで済む
+/// （12 のままだと n >= 26 で 3 本になる）
+pub fn strip_height(n: usize) -> usize {
+    STRIP_HEIGHT.max(n.saturating_sub(1).div_ceil(2))
+}
 
 /// 高さ h・幅 n の帯で、帯の全マスが条件を満たすときの最小塗り数。
 /// top_free / bot_free が true なら帯の上 / 下の外側の行は好きに塗れるとみなし、
@@ -205,7 +213,7 @@ mod tests {
     #[test]
     fn lower_bound_is_below_known() {
         for n in 1..=10 {
-            let lb = lower_bounds(n, STRIP_HEIGHT);
+            let lb = lower_bounds(n, strip_height(n));
             assert!(lb.anchored[n] <= known(n).unwrap(), "n = {n}");
         }
     }

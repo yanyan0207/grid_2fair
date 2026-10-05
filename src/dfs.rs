@@ -12,7 +12,7 @@
 //! DP と違って状態の表を持たないので、メモリは今の経路の n 行分だけで済む。
 
 use crate::Board;
-use crate::bound::{STRIP_HEIGHT, lower_bounds};
+use crate::bound::{lower_bounds, strip_height};
 use crate::row::{forced_below, mirror};
 
 pub struct Dfs {
@@ -31,7 +31,7 @@ impl Dfs {
         Self {
             n,
             full: (1u64 << n) - 1,
-            lb: lower_bounds(n, STRIP_HEIGHT).anchored,
+            lb: lower_bounds(n, strip_height(n)).anchored,
             budget: 0,
             rows: Vec::with_capacity(n),
             nodes: 0,

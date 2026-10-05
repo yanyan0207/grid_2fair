@@ -20,7 +20,7 @@
 use rustc_hash::FxHashMap as HashMap;
 
 use crate::Board;
-use crate::bound::{Bounds, STRIP_HEIGHT, lower_bounds};
+use crate::bound::{Bounds, lower_bounds, strip_height};
 use crate::row::{for_each_subset_upto, forced_below, mirror};
 
 /// 1 回の予算判定の結果
@@ -360,7 +360,7 @@ pub fn solve_by_budget(
     mut on_budget: impl FnMut(usize, &Outcome),
     on_pass: impl FnMut(usize, u64, usize),
 ) -> Board {
-    let bounds = lower_bounds(n, STRIP_HEIGHT);
+    let bounds = lower_bounds(n, strip_height(n));
     for budget in bounds.anchored[n].. {
         let outcome = search(n, budget, &bounds);
         on_budget(budget, &outcome);
@@ -391,7 +391,7 @@ mod tests {
     #[test]
     fn symmetric_matches_plain() {
         for n in 1..=12 {
-            let lb = lower_bounds(n, STRIP_HEIGHT);
+            let lb = lower_bounds(n, strip_height(n));
             let a = known(n).unwrap();
             for budget in lb.anchored[n]..=a {
                 let sym = search_impl(n, budget, &lb, true, &mut |_, _, _| {});
@@ -417,7 +417,7 @@ mod tests {
     #[test]
     fn budget_below_answer_is_infeasible() {
         for n in 1..=15 {
-            let lb = lower_bounds(n, STRIP_HEIGHT);
+            let lb = lower_bounds(n, strip_height(n));
             let a = known(n).unwrap();
             assert!(search(n, a - 1, &lb).min.is_none(), "n = {n}");
         }

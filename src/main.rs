@@ -58,7 +58,7 @@ struct Args {
 
 /// 下界の表を出す。どれも bound::lower_bounds の値で、探索の枝刈りに使うのは anchored
 fn print_bounds(n: usize) {
-    let b = bound::lower_bounds(n, bound::STRIP_HEIGHT);
+    let b = bound::lower_bounds(n, bound::strip_height(n));
     let join = |v: &[usize]| {
         v.iter()
             .map(usize::to_string)

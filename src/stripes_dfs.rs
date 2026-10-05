@@ -14,7 +14,7 @@
 //! 予算以内の縞の解が 1 つ見つかった時点で止める。結果を覚える表は使わないので、メモリは経路の分だけ。
 
 use crate::Board;
-use crate::bound::{STRIP_HEIGHT, lower_bounds};
+use crate::bound::{lower_bounds, strip_height};
 use crate::dfs::{Dfs, trivial, upper_bound};
 use crate::row::forced_below;
 use crate::stripes::{DEFAULT_MARGIN, Stripes};
@@ -179,7 +179,7 @@ pub fn construct(n: usize, margin: usize) -> Option<(Board, usize)> {
         n,
         full: (1u64 << n) - 1,
         stripes,
-        lb: lower_bounds(n, STRIP_HEIGHT).anchored,
+        lb: lower_bounds(n, strip_height(n)).anchored,
         budget: 0,
         a: 0,
         b: 0,
