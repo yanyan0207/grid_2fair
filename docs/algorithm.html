@@ -151,8 +151,8 @@ ul.plain, ol.plain { margin: 0; padding-left: 1.4em; display: grid; gap: 6px; }
     <p class="axis-note">English | <a href="algorithm.ja.html">日本語</a></p>
     <div class="hero">
       <div style="display:grid;gap:12px">
-        <h1>Computing a(16)–a(22) with a row-by-row search</h1>
-        <p class="lead">Paint some cells of an n×n grid so that every unpainted cell is orthogonally adjacent to exactly two painted cells. a(n) is the minimum number of painted cells. Starting from a row-by-row DFS, we moved to a row-by-row DP that prunes with a budget and a lower bound (<code>src/dp.rs</code>) and computed a(16)–a(19), beyond the a(15) listed in the OEIS. Putting the same lower bound into the DFS (<code>src/dfs.rs</code>) made it faster than the DP, and building a striped solution first and then proving it minimal (<code>src/stripes_dfs.rs</code>) took us to a(22). That method is now the default. This page explains how, step by step.</p>
+        <h1>Computing a(16)–a(28) with a row-by-row search</h1>
+        <p class="lead">Paint some cells of an n×n grid so that every unpainted cell is orthogonally adjacent to exactly two painted cells. a(n) is the minimum number of painted cells. Starting from a row-by-row DFS, we moved to a row-by-row DP that prunes with a budget and a lower bound (<code>src/dp.rs</code>) and computed a(16)–a(19), beyond the a(15) listed in the OEIS. Putting the same lower bound into the DFS (<code>src/dfs.rs</code>) made it faster than the DP, and building a striped solution first and then proving it minimal (<code>src/stripes_dfs.rs</code>), together with taller strips for the lower bound, took us to a(28). That method is now the default. This page explains how, step by step.</p>
       </div>
       <figure>
         <svg id="hero-svg" role="img" aria-label="A minimum solution for n=16"></svg>
@@ -163,10 +163,10 @@ ul.plain, ol.plain { margin: 0; padding-left: 1.4em; display: grid; gap: 6px; }
 
   <section>
     <div class="eyebrow">Results</div>
-    <h2>a(16) = 102, a(17) = 115, a(18) = 128, a(19) = 141, a(20) = 156, a(21) = 171, a(22) = 186</h2>
-    <p>When this page was written, the OEIS listed terms up to a(15) (a(12)–a(15) were computed by Bert Dobbelaere in 2021). The same program reproduces a(12)–a(15) and finds the next seven terms. Each value is backed by two checks:</p>
+    <h2>a(16) = 102, a(17) = 115, a(18) = 128, a(19) = 141, a(20) = 156, a(21) = 171, a(22) = 186, a(23) = 203, a(24) = 220, a(25) = 237, a(26) = 256, a(27) = 275, a(28) = 294</h2>
+    <p>When this page was written, the OEIS listed terms up to a(15) (a(12)–a(15) were computed by Bert Dobbelaere in 2021). The same program reproduces a(12)–a(15) and finds the next thirteen terms. Each value is backed by two checks:</p>
     <ul class="plain">
-      <li><strong>a(n) − 1 cells are not enough</strong>: an exhaustive search with budget a(n) − 1 finds no solution. a(16)–a(22) were each obtained by at least two of the DP, the DFS and the striped construction.</li>
+      <li><strong>a(n) − 1 cells are not enough</strong>: an exhaustive search with budget a(n) − 1 finds no solution. a(16)–a(20) were confirmed by two independent implementations (the row-by-row DP and the DFS); larger terms rely on the DFS.</li>
       <li><strong>a(n) cells suffice</strong>: every cell of the solution board is checked with <code>Board::is_valid</code>.</li>
     </ul>
     <div class="table-wrap">
@@ -184,26 +184,35 @@ ul.plain, ol.plain { margin: 0; padding-left: 1.4em; display: grid; gap: 6px; }
           <tr><td class="mono">20</td><td class="num new">156</td><td class="num">15</td><td>this program</td></tr>
           <tr><td class="mono">21</td><td class="num new">171</td><td class="num">15</td><td>this program</td></tr>
           <tr><td class="mono">22</td><td class="num new">186</td><td class="num">15</td><td>this program</td></tr>
+          <tr><td class="mono">23</td><td class="num new">203</td><td class="num">17</td><td>this program</td></tr>
+          <tr><td class="mono">24</td><td class="num new">220</td><td class="num">17</td><td>this program</td></tr>
+          <tr><td class="mono">25</td><td class="num new">237</td><td class="num">17</td><td>this program</td></tr>
+          <tr><td class="mono">26</td><td class="num new">256</td><td class="num">19</td><td>this program</td></tr>
+          <tr><td class="mono">27</td><td class="num new">275</td><td class="num">19</td><td>this program</td></tr>
+          <tr><td class="mono">28</td><td class="num new">294</td><td class="num">19</td><td>this program</td></tr>
         </tbody>
       </table>
     </div>
-    <p class="note">The patterns these values suggest are collected in the next section, "Conjectures".</p>
+    <p class="note">The patterns these values follow are collected in the next section, "Upper bound and conjectures".</p>
   </section>
 
   <section>
-    <div class="eyebrow">Conjectures</div>
-    <h2>Two conjectures: a formula and the shape of solutions</h2>
-    <p>The computed values and solutions suggest two conjectures. Neither is proven.</p>
+    <div class="eyebrow">Upper bound and conjectures</div>
+    <h2>The formula is a proven upper bound; equality and the shape are conjectures</h2>
+    <h3>Upper bound (proven)</h3>
+<pre><code>a(n) ≤ ⌈(n+2)² / 3⌉ − 6 = (3n² + 12n − 38 − 4 cos(2π(n−1)/3)) / 9    (n ≥ 7)</code></pre>
+    <p>The optimal solutions found for n = 21, 22, 23 contain a band of 3 rows and 3 columns in the middle whose neighboring rows and columns repeat it. Duplicating the band therefore keeps every cell's neighborhood unchanged, so the result is again a valid solution, and it adds exactly 2n + 7 cells, the same as the formula's increase from n to n + 3. Repeating this gives a solution with that many cells for every n ≥ 21 (checked explicitly up to n = 120). Together with the computed values for 7 ≤ n ≤ 20, this proves the bound.</p>
+    <p>Equality (that fewer cells never suffice) and the shape of solutions remain the following two conjectures.</p>
     <h3>Conjecture 1 (formula)</h3>
 <pre><code>a(n) = ⌈(n+2)² / 3⌉ − 6    (n ≥ 7)</code></pre>
     <ul class="plain">
-      <li><strong>Evidence</strong>: it matches all 16 values for n = 7–22. Equivalently, from n = 8 on the differences are 7, 7, 7, 9, 9, 9, 11, 11, 11, 13, 13, 13, 15, 15, 15: each value repeats three times.</li>
-      <li><strong>Why n²/3</strong>: each unpainted cell touches exactly 2 painted cells and each painted cell touches at most 4 cells, so at least a third of the cells must be painted. The (n+2)² form and the −6 presumably come from the edges.</li>
+      <li><strong>Evidence</strong>: equality holds for all 22 computed values n = 7–28. Equivalently, from n = 8 on the differences are 7, 7, 7, 9, 9, 9, 11, 11, 11, …: each value repeats three times.</li>
+      <li><strong>Why n²/3</strong>: each unpainted cell touches exactly 2 painted cells and each painted cell touches at most 4 cells, so at least a third of the cells must be painted. Proving a matching lower bound for all n is open.</li>
     </ul>
     <h3>Conjecture 2 (shape of solutions)</h3>
     <p>For every n ≥ 6 there is an optimal solution in which every row, apart from 2 rows at the top and bottom and 2 columns at the left and right, is a diagonal stripe of period 3 (only columns c ≡ s mod 3 painted, with s depending on the row). The n = 16 figure at the top is an example.</p>
     <ul class="plain">
-      <li><strong>Evidence</strong>: for n = 6–22, the optimal solution found by the DFS has this shape. This shows such a solution exists for those n; it does not show that every optimal solution is striped.</li>
+      <li><strong>Evidence</strong>: for n = 6–28, the optimal solution found by the program has this shape. This shows such a solution exists for those n; it does not show that every optimal solution is striped.</li>
       <li><strong>Use</strong>: the default algorithm is designed around this conjecture (see "Build from stripes").</li>
     </ul>
   </section>
@@ -220,6 +229,7 @@ ul.plain, ol.plain { margin: 0; padding-left: 1.4em; display: grid; gap: 6px; }
       <li><strong>Drop the row above</strong>: change the DP state from (row above, current row) to (current row, forced cells below it). Different rows above with the same forced cells lead to the same search.</li>
       <li><strong>Back to DFS</strong>: putting the budget, the lower bound, the lookahead and the symmetry into the DFS as is made it faster than the DP, with memory for just the n rows of the current path.</li>
       <li><strong>Build from stripes, then prove</strong>: the interior of optimal solutions is a diagonal stripe pattern of period 3. Build a solution among striped rows first, then prove it minimal by searching every board with one cell fewer. n = 22 went from 552 s to 164 s.</li>
+      <li><strong>Taller strips and budget slack</strong>: computing strip minima by DFS allows strips up to half the board, and the optional cells of the next row are only chosen up to the remaining budget slack. n = 23 went from 1,940 s to 51 s, and n = 28 became reachable.</li>
     </ol>
   </section>
 
@@ -245,7 +255,7 @@ ul.plain, ol.plain { margin: 0; padding-left: 1.4em; display: grid; gap: 6px; }
       <div style="display:grid;gap:12px">
         <p>In the figure, the unpainted cells of row r (yellow band) determine the forced cells of row r+1 (orange). The dashed boxes sit below painted cells of row r; only these may be painted or not.</p>
         <p>The candidates for the next row are therefore "forced cells ∪ a subset of the free cells". With k free cells there are 2<sup>k</sup> candidates, far fewer than the 2<sup>n</sup> possible rows.</p>
-        <p>All subsets are enumerated with the bit trick <code>sub = (sub - 1) &amp; cur</code>.</p>
+        <p>Not all of them are generated, though. The search computes the budget slack: the budget minus (cells so far + forced cells + the lower bound of the rows below). Only subsets with at most that many free cells are generated, starting with the empty one and adding bits from the lowest up, recursively (<code>choose</code> in <code>dfs.rs</code>).</p>
       </div>
       <figure>
         <svg id="free-svg" role="img" aria-label="Forced and free cells"></svg>
@@ -287,7 +297,7 @@ ul.plain, ol.plain { margin: 0; padding-left: 1.4em; display: grid; gap: 6px; }
   <section>
     <div class="eyebrow">Demo (dfs.rs)</div>
     <h2>Step through the DFS</h2>
-    <p>This runs the same procedure as <code>src/dfs.rs</code> inside the page. The node count matches the nodes printed by <code>cargo run --release -- n</code>.</p>
+    <p>This runs the same procedure as <code>src/dfs.rs</code> inside the page. The node count matches the nodes printed by <code>cargo run --release -- n --algo dfs</code>.</p>
     <div class="demo">
       <div class="controls">
         <label for="sel-n">Board n
@@ -333,7 +343,7 @@ ul.plain, ol.plain { margin: 0; padding-left: 1.4em; display: grid; gap: 6px; }
   <section>
     <div class="eyebrow">Results (dfs.rs)</div>
     <h2>DFS measurements</h2>
-    <p>Measured with a release build (<code>cargo run --release -- 3 --to 15</code>). Nodes are counted as in the demo.</p>
+    <p>Measured with a release build (<code>cargo run --release -- 3 --to 15 --algo dfs</code>). Nodes are counted as in the demo.</p>
     <div class="table-wrap">
       <table>
         <thead><tr><th>n</th><th class="num">Result</th><th class="num">OEIS</th><th class="num">Nodes</th><th class="num">Time</th></tr></thead>
@@ -381,7 +391,7 @@ c + anchored[n - 1 - k] &lt;= budget</code></pre>
       <li><strong>B<sub>h</sub></strong>: the minimum for a strip of height h touching the bottom edge (nothing below it can be painted).</li>
       <li>Splitting the remaining m rows into one bottom strip plus several free strips and adding their minimums gives a lower bound. The largest over all splits is used.</li>
     </ul>
-    <p>The strip minimum is computed by a DP that decides the strip one column at a time from left to right. It is the row-wise forcing rotated by 90°, with 4<sup>h</sup> states (left column, current column). Heights up to h = 9 are used.</p>
+    <p>The strip minimum is found by deciding the strip one column at a time from left to right, which is the row-wise forcing rotated by 90°. It was first computed by a DP over the 4<sup>h</sup> states (left column, current column), which limited h to 9. It is now computed by a DFS (<code>src/strip_dfs.rs</code>) that prunes with the minima of narrower strips as the estimate for the remaining columns. This allows strips of height up to max(12, ⌈(n−1)/2⌉), so the remaining rows are always covered by at most two strips and fewer joints weaken the bound.</p>
 <pre><code>n = 16: lower bound for the bottom m rows (m = 0..16)
 0, 6, 13, 19, 27, 32, 39, 44, 50, 56, 61, 67, 73, 79, 85, 91, 96</code></pre>
     <p>The bound for all 16 rows is 96, only 6 below the answer 102. With a budget close to the optimum, a state that painted slightly too much near the top exceeds the budget almost immediately.</p>
@@ -556,23 +566,29 @@ c + anchored[n - 1 - k] &lt;= budget</code></pre>
     <p>About two thirds of the DFS time went into searching for a solution under the feasible budget. Yet fixing a(n) needs only two facts: a solution with a(n) cells exists, and a(n) − 1 cells are not enough. The first does not have to be found by search; building one is enough. The current default (<code>--algo stripes-dfs</code>) works as follows.</p>
     <ol class="plain">
       <li><strong>Build a striped solution</strong>: as in Conjecture 2, some optimal solution has every row striped with period 3 apart from 2 rows and 2 columns at each edge (checked for n = 6–22). Find the minimum solution among boards restricted to such rows.</li>
-      <li><strong>Build from the middle</strong>: choose the two middle rows among the striped rows (48 kinds) and extend the board row by row toward both edges. Once the two rows are fixed, the upper and lower parts do not interact, so their minimums are found separately and added. Results are memoized by "the two fixed rows and the number of rows to the edge".</li>
+      <li><strong>Build from the middle</strong>: choose the two middle rows among the striped rows (48 kinds) and extend the board row by row toward both edges. The budget starts at the proven upper bound, and the DFS stops at the first striped solution within the budget (no memo table, so memory stays at the current path).</li>
       <li><strong>Prove it minimal</strong>: with U the count of the built solution, an exhaustive DFS with budget U − 1 searches every board. If it finds none, a(n) = U. If it finds one, its count becomes the new U and the step repeats.</li>
     </ol>
     <p>The stripe restriction is used only to build a solution, so the conclusion is as rigorous as an unrestricted search.</p>
     <p class="note">This method is designed around Conjecture 2 in the "Conjectures" section. If it fails, the answer is still correct: when the striped solution is not minimal, the DFS with budget U − 1 finds a better one and the search keeps descending. In that case, though, the DFS has to search a feasible budget, and the speed advantage is lost.</p>
     <div class="table-wrap">
       <table>
-        <thead><tr><th>n</th><th class="num">Build striped solution</th><th class="num">Proof (budget a(n) − 1)</th><th class="num">Total</th><th class="num">DFS</th></tr></thead>
+        <thead><tr><th>n</th><th class="num">Build striped solution</th><th class="num">Proof (budget a(n) − 1)</th><th class="num">Total</th><th class="num">v0.3.0 total</th></tr></thead>
         <tbody>
-          <tr><td class="mono">19</td><td class="num">0.56 s</td><td class="num">1.7 s</td><td class="num">2.2 s</td><td class="num">5.3 s</td></tr>
-          <tr><td class="mono">20</td><td class="num">1.1 s</td><td class="num">11.1 s</td><td class="num">12.2 s</td><td class="num">54 s</td></tr>
-          <tr><td class="mono">21</td><td class="num">2.3 s</td><td class="num">44 s</td><td class="num">46.4 s</td><td class="num">168 s</td></tr>
-          <tr><td class="mono">22</td><td class="num">4.6 s</td><td class="num">159 s</td><td class="num">164 s</td><td class="num">552 s</td></tr>
+          <tr><td class="mono">19</td><td class="num">0.60 s</td><td class="num">0.07 s</td><td class="num">0.67 s</td><td class="num">2.2 s</td></tr>
+          <tr><td class="mono">20</td><td class="num">1.7 s</td><td class="num">1.6 s</td><td class="num">3.3 s</td><td class="num">12.2 s</td></tr>
+          <tr><td class="mono">21</td><td class="num">2.8 s</td><td class="num">1.8 s</td><td class="num">4.7 s</td><td class="num">46.4 s</td></tr>
+          <tr><td class="mono">22</td><td class="num">4.0 s</td><td class="num">6.0 s</td><td class="num">9.9 s</td><td class="num">164 s</td></tr>
+          <tr><td class="mono">23</td><td class="num">21 s</td><td class="num">31 s</td><td class="num">51 s</td><td class="num">1,940 s</td></tr>
+          <tr><td class="mono">24</td><td class="num">32 s</td><td class="num">65 s</td><td class="num">97 s</td><td class="num"></td></tr>
+          <tr><td class="mono">25</td><td class="num">49 s</td><td class="num">111 s</td><td class="num">159 s</td><td class="num"></td></tr>
+          <tr><td class="mono">26</td><td class="num">146 s</td><td class="num">485 s</td><td class="num">631 s</td><td class="num"></td></tr>
+          <tr><td class="mono">27</td><td class="num">259 s</td><td class="num">1,054 s</td><td class="num">1,313 s</td><td class="num"></td></tr>
+          <tr><td class="mono">28</td><td class="num">324 s</td><td class="num">1,988 s</td><td class="num">2,312 s</td><td class="num"></td></tr>
         </tbody>
       </table>
     </div>
-    <p>"Build striped solution" includes the roughly 0.2 s spent computing the lower bound. The rest is the exhaustive search with budget a(n) − 1. Stripes cannot help there, so making it faster needs parallelism or a cache for the DFS.</p>
+    <p>"Build striped solution" includes the time spent computing the lower bound. The rest is the exhaustive search with budget a(n) − 1. Stripes cannot help there, so further speedups need parallelism or similar.</p>
   </section>
 
   <section>
@@ -586,7 +602,8 @@ c + anchored[n - 1 - k] &lt;= budget</code></pre>
           <tr><td><code>src/stripes.rs</code></td><td>Striped rows: test (<code>is_striped</code>) and enumeration (<code>rows</code>)</td></tr>
           <tr><td><code>src/dfs.rs</code></td><td>Budgeted row DFS. <code>admit</code> is the check before entering a row, <code>rec</code> the per-row recursion</td></tr>
           <tr><td><code>src/dp.rs</code></td><td>Budgeted row DP. <code>forward</code> is the two-table DP, <code>search</code> decides a budget, <code>reconstruct</code> and <code>pin_far_end</code> rebuild the board</td></tr>
-          <tr><td><code>src/bound.rs</code></td><td>Strip lower bound. <code>strip_min</code> is the strip minimum, <code>lower_bounds</code> the bound for the remaining rows. Used by both DFS and DP</td></tr>
+          <tr><td><code>src/bound.rs</code></td><td>Strip lower bound. <code>lower_bounds</code> is the bound for the remaining rows, <code>strip_height</code> the strip height limit. Used by both DFS and DP</td></tr>
+          <tr><td><code>src/strip_dfs.rs</code></td><td>Strip minima by a column-by-column DFS (<code>strip_min_dfs</code>)</td></tr>
           <tr><td><code>src/row.rs</code></td><td>Shared row operations: <code>forced_below</code> (forced cells), state keys, left-right mirroring</td></tr>
           <tr><td><code>src/brute.rs</code></td><td>Brute force over all 2<sup>n²</sup> boards, for cross-checking (n ≤ 5 or so)</td></tr>
           <tr><td><code>src/board.rs</code></td><td>The <code>Board</code> type and the validity check <code>is_valid</code></td></tr>
@@ -599,7 +616,7 @@ c + anchored[n - 1 - k] &lt;= budget</code></pre>
     <ol class="plain">
       <li><strong>Parallel proof</strong>: the DFS with budget a(n) − 1 is independent for each first-row candidate, so it can scale with the number of cores.</li>
       <li><strong>Tighter lower bound</strong>: the gap between the bound and the answer is 6–8 for n = 16–19. One unit of budget changes the state count about fourfold, so tightening the bound by 1 is worth roughly one smaller n. Options include taller strips and a bound that depends on the current row.</li>
-      <li><strong>A cache for the DFS</strong>: remember in a fixed-size table that "this state cannot be finished within a remaining budget of A" and skip it when it comes up again. This reduces repeated work for large n while keeping memory fixed.</li>
+      <li><strong>Proof from the middle</strong>: starting from the middle rows makes both remaining parts edge-anchored strips, so the budget tightly limits the middle rows (3.46 million row pairs for n = 26). A prototype was still slower than the current proof because the upper and lower searches repeat work across pairs, so there is room for improvement.</li>
       <li><strong>Proof for general n</strong>: prove upper and lower bounds from the "each difference repeats three times" pattern and the diagonal-stripe shape of the solutions.</li>
     </ol>
   </section>
@@ -784,7 +801,7 @@ c + anchored[n - 1 - k] &lt;= budget</code></pre>
   const LB = {};
   function lowerBounds(n) {
     if (LB[n]) return LB[n];
-    const maxH = Math.min(9, n);
+    const maxH = Math.min(n, Math.max(12, Math.ceil((n - 1) / 2))); // bound.rs の strip_height と同じ
     const strip = (h, botFree) => h === 0 ? 0 : stripMin(n, h, true, botFree);
     const freeStrip = [], bottomStrip = [];
     for (let h = 0; h <= maxH; h++) { freeStrip.push(strip(h, true)); bottomStrip.push(strip(h, false)); }
@@ -840,10 +857,19 @@ c + anchored[n - 1 - k] &lt;= budget</code></pre>
         return true;
       }
       const forced = forcedBelow(n, up, cur);
-      yield S("forced", `Row ${k} checked. Row ${k + 1} gets ${popcount(forced)} forced cells and ${popcount(cur)} free cells (${1 << popcount(cur)} choices).`, { r: k, forced, free: cur, painted: c });
-      let sub = cur;
-      for (;;) {
-        const down = forced | sub, w = c + popcount(down);
+      // dfs.rs と同じく、予算の余裕の個数までしか自由マスを足さない
+      const base = c + popcount(forced);
+      const slack = st.budget - (base + lb[n - 2 - k]);
+      if (slack < 0) {
+        yield S("cut", `Row ${k} checked. The ${popcount(forced)} forced cells of row ${k + 1} plus the lower bound below already exceed the budget. This branch is skipped.`, { r: k, forced, painted: c });
+        return false;
+      }
+      yield S("forced", `Row ${k} checked. Row ${k + 1} gets ${popcount(forced)} forced cells and ${popcount(cur)} free cells. The budget leaves room for ${slack} more cells, so up to ${slack} free cells are added.`, { r: k, forced, free: cur, painted: c });
+      const bits = [];
+      for (let m = cur; m; m &= m - 1) bits.push(m & -m);
+      // dfs.rs の choose と同じ順番: 何も足さない候補、bits[0] を足す候補、bits[0..1] を足す候補、…
+      function* choose(start, chosen, left) {
+        const down = forced | chosen, w = base + popcount(chosen);
         const ch = check(k + 1, cur, down, w);
         rows.push(down);
         if (ch.ok) {
@@ -853,10 +879,14 @@ c + anchored[n - 1 - k] &lt;= budget</code></pre>
           yield cut(k + 1, cur, down, w, ch);
         }
         rows.pop();
-        if (sub === 0) break;
-        sub = (sub - 1) & cur;
+        if (left > 0) {
+          for (let i = start; i < bits.length; i++) {
+            if (yield* choose(i + 1, chosen | bits[i], left - 1)) return true;
+          }
+        }
+        return false;
       }
-      return false;
+      return yield* choose(0, 0, slack);
     }
 
     for (;;) {
@@ -869,7 +899,7 @@ c + anchored[n - 1 - k] &lt;= budget</code></pre>
         if (ch.ok) {
           yield S("choose", `Enter row 0 as ${show(first)} (${c} painted).`, { r: 0, painted: c });
           if (yield* rec(0, 0, first, c)) {
-            yield S("done", `Search finished. a(${n}) = ${st.budget}. The ${st.nodes} nodes match the nodes printed by cargo run --release -- ${n}.`, { r: -1 });
+            yield S("done", `Search finished. a(${n}) = ${st.budget}. The ${st.nodes} nodes match the nodes printed by cargo run --release -- ${n} --algo dfs.`, { r: -1 });
             return;
           }
         } else {
@@ -1146,11 +1176,11 @@ c + anchored[n - 1 - k] &lt;= budget</code></pre>
   })();
 
   /* ---- 結果表 ---- */
-  const RES = [[3, 5, 5, 4, "92 µs"], [4, 8, 8, 5, "53 µs"], [5, 11, 11, 9, "0.17 ms"],
-               [6, 17, 17, 80, "0.92 ms"], [7, 21, 21, 15, "4.1 ms"], [8, 28, 28, 88, "20 ms"],
-               [9, 35, 35, 335, "95 ms"], [10, 42, 42, 421, "0.11 s"], [11, 51, 51, 3386, "0.13 s"],
-               [12, 60, 60, 10218, "0.14 s"], [13, 69, 69, 18431, "0.16 s"], [14, 80, 80, 197804, "0.21 s"],
-               [15, 91, 91, 466183, "0.29 s"]];
+  const RES = [[3, 5, 5, 4, "18 µs"], [4, 8, 8, 9, "4.1 µs"], [5, 11, 11, 6, "5.6 µs"],
+               [6, 17, 17, 12, "4.4 µs"], [7, 21, 21, 11, "5.6 µs"], [8, 28, 28, 74, "13 µs"],
+               [9, 35, 35, 204, "20 µs"], [10, 42, 42, 371, "38 µs"], [11, 51, 51, 3472, "0.24 ms"],
+               [12, 60, 60, 5486, "0.41 ms"], [13, 69, 69, 5564, "0.48 ms"], [14, 80, 80, 42769, "4.3 ms"],
+               [15, 91, 91, 133753, "19 ms"]];
   el("results").innerHTML = RES.map(([n, got, oeis, nodes, t]) =>
     `<tr><td class="mono">${n}</td><td class="num">${got ?? "–"}</td><td class="num">${oeis}</td>` +
     `<td class="num">${nodes === null ? "–" : nodes.toLocaleString()}</td><td class="num">${t}</td></tr>`

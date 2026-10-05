@@ -151,8 +151,8 @@ ul.plain, ol.plain { margin: 0; padding-left: 1.4em; display: grid; gap: 6px; }
     <p class="axis-note"><a href="algorithm.html">English</a> | 日本語</p>
     <div class="hero">
       <div style="display:grid;gap:12px">
-        <h1>行単位の探索で a(16)〜a(22) を求める</h1>
-        <p class="lead">n×n の格子のマスをいくつか塗り、塗っていないマスがどれも上下左右でちょうど 2 個の塗ったマスに接するようにします。塗るマスの最小個数が a(n) です。行単位の DFS から始め、予算と下界で枝を切る行単位の DP（<code>src/dp.rs</code>）で、OEIS に載っている a(15) の先、a(16)〜a(19) まで求めました。同じ下界を DFS（<code>src/dfs.rs</code>）に入れると DP より速くなり、さらに縞模様の解を先に作ってから最小だと証明する方法（<code>src/stripes_dfs.rs</code>）で a(22) まで求めました。今はこの方法が既定です。その仕組みを順に説明します。</p>
+        <h1>行単位の探索で a(16)〜a(28) を求める</h1>
+        <p class="lead">n×n の格子のマスをいくつか塗り、塗っていないマスがどれも上下左右でちょうど 2 個の塗ったマスに接するようにします。塗るマスの最小個数が a(n) です。行単位の DFS から始め、予算と下界で枝を切る行単位の DP（<code>src/dp.rs</code>）で、OEIS に載っている a(15) の先、a(16)〜a(19) まで求めました。同じ下界を DFS（<code>src/dfs.rs</code>）に入れると DP より速くなり、さらに縞模様の解を先に作ってから最小だと証明する方法（<code>src/stripes_dfs.rs</code>）と、帯を高くした下界で a(28) まで求めました。今はこの方法が既定です。その仕組みを順に説明します。</p>
       </div>
       <figure>
         <svg id="hero-svg" role="img" aria-label="n=16 の最小解"></svg>
@@ -163,10 +163,10 @@ ul.plain, ol.plain { margin: 0; padding-left: 1.4em; display: grid; gap: 6px; }
 
   <section>
     <div class="eyebrow">結果</div>
-    <h2>a(16) = 102、a(17) = 115、a(18) = 128、a(19) = 141、a(20) = 156、a(21) = 171、a(22) = 186</h2>
-    <p>このページを作った時点で OEIS に載っていたのは a(15) までです（a(12)〜a(15) は Bert Dobbelaere が 2021 年に計算）。a(12)〜a(15) は同じプログラムで再現でき、その先の 7 項を求めました。各値について、次の 2 つを確かめています。</p>
+    <h2>a(16) = 102、a(17) = 115、a(18) = 128、a(19) = 141、a(20) = 156、a(21) = 171、a(22) = 186、a(23) = 203、a(24) = 220、a(25) = 237、a(26) = 256、a(27) = 275、a(28) = 294</h2>
+    <p>このページを作った時点で OEIS に載っていたのは a(15) までです（a(12)〜a(15) は Bert Dobbelaere が 2021 年に計算）。a(12)〜a(15) は同じプログラムで再現でき、その先の 13 項を求めました。各値について、次の 2 つを確かめています。</p>
     <ul class="plain">
-      <li><strong>a(n) − 1 個では塗れない</strong>: 予算 a(n) − 1 で全部の塗り方を調べ、解がなかった。a(16)〜a(22) は、DP、DFS、縞から作る方法のうち 2 つ以上で、それぞれ同じ値を得た。</li>
+      <li><strong>a(n) − 1 個では塗れない</strong>: 予算 a(n) − 1 で全部の塗り方を調べ、解がなかった。a(16)〜a(20) は、独立した 2 つの実装（行単位の DP と DFS）で同じ値を得た。それより大きい項は DFS だけで確かめた。</li>
       <li><strong>a(n) 個で塗れる</strong>: 解の盤面の全マスの条件を <code>Board::is_valid</code> で確かめた。</li>
     </ul>
     <div class="table-wrap">
@@ -184,26 +184,35 @@ ul.plain, ol.plain { margin: 0; padding-left: 1.4em; display: grid; gap: 6px; }
           <tr><td class="mono">20</td><td class="num new">156</td><td class="num">15</td><td>このプログラム</td></tr>
           <tr><td class="mono">21</td><td class="num new">171</td><td class="num">15</td><td>このプログラム</td></tr>
           <tr><td class="mono">22</td><td class="num new">186</td><td class="num">15</td><td>このプログラム</td></tr>
+          <tr><td class="mono">23</td><td class="num new">203</td><td class="num">17</td><td>このプログラム</td></tr>
+          <tr><td class="mono">24</td><td class="num new">220</td><td class="num">17</td><td>このプログラム</td></tr>
+          <tr><td class="mono">25</td><td class="num new">237</td><td class="num">17</td><td>このプログラム</td></tr>
+          <tr><td class="mono">26</td><td class="num new">256</td><td class="num">19</td><td>このプログラム</td></tr>
+          <tr><td class="mono">27</td><td class="num new">275</td><td class="num">19</td><td>このプログラム</td></tr>
+          <tr><td class="mono">28</td><td class="num new">294</td><td class="num">19</td><td>このプログラム</td></tr>
         </tbody>
       </table>
     </div>
-    <p class="note">これらの値から見えてくる規則は、次の「予想」の節にまとめています。</p>
+    <p class="note">これらの値が従う規則は、次の「上限と予想」の節にまとめています。</p>
   </section>
 
   <section>
-    <div class="eyebrow">予想</div>
-    <h2>値の式と、解の形についての 2 つの予想</h2>
-    <p>求めた値と解から、次の 2 つの予想が立ちます。どちらも証明はありません。</p>
+    <div class="eyebrow">上限と予想</div>
+    <h2>式は上限として証明でき、等号と解の形は予想</h2>
+    <h3>上限（証明済み）</h3>
+<pre><code>a(n) ≤ ⌈(n+2)² / 3⌉ − 6 = (3n² + 12n − 38 − 4 cos(2π(n−1)/3)) / 9    （n ≥ 7）</code></pre>
+    <p>n = 21、22、23 で見つかった最適解には、真ん中に 3 行と 3 列の帯があり、そのすぐ外側の行と列が帯の端と同じになっています。そのため帯を複製しても、どのマスも上下左右の並びが変わらず、条件を満たす解のままです。増える塗り数はちょうど 2n + 7 で、式が n から n + 3 で増える量と同じです。これを繰り返すと、n ≥ 21 のすべてで式の個数の解が得られます（n = 120 まで実際に確認）。7 ≤ n ≤ 20 は計算した値が式どおりなので、合わせて上限が示せます。</p>
+    <p>等号（式より少なくは塗れないこと）と、解の形については、次の 2 つの予想にとどまります。</p>
     <h3>予想 1（値の式）</h3>
 <pre><code>a(n) = ⌈(n+2)² / 3⌉ − 6    （n ≥ 7）</code></pre>
     <ul class="plain">
-      <li><strong>根拠</strong>: n = 7〜22 の 16 個の値すべてと一致する。言い換えると、n = 8 以降の差が 7, 7, 7, 9, 9, 9, 11, 11, 11, 13, 13, 13, 15, 15, 15 と、同じ値を 3 回ずつ繰り返す。</li>
-      <li><strong>主要項の理由</strong>: 塗っていないマスはちょうど 2 個の塗ったマスに接し、塗ったマスが接するマスは最大 4 個なので、全体の 3 分の 1 以上を塗る必要がある。(n+2)² の形と −6 は、端の影響と考えられる。</li>
+      <li><strong>根拠</strong>: 計算した n = 7〜28 の 22 個の値すべてで等号が成り立つ。言い換えると、n = 8 以降の差が 7, 7, 7, 9, 9, 9, 11, 11, 11, … と、同じ値を 3 回ずつ繰り返す。</li>
+      <li><strong>主要項の理由</strong>: 塗っていないマスはちょうど 2 個の塗ったマスに接し、塗ったマスが接するマスは最大 4 個なので、全体の 3 分の 1 以上を塗る必要がある。上限と一致する下限を一般の n で示すことは未解決。</li>
     </ul>
     <h3>予想 2（解の形）</h3>
     <p>どの n ≥ 6 にも、上下 2 行と左右 2 列を除いて、全部の行が周期 3 の斜めの縞（行ごとに決まる s について、c ≡ s (mod 3) の列だけを塗る）になる最適解がある。冒頭の n = 16 の図がその例です。</p>
     <ul class="plain">
-      <li><strong>根拠</strong>: n = 6〜22 では、DFS が見つけた最適解がこの形になっている。これらの n でこの形の最適解が存在することは確かめたが、すべての最適解が縞になるかは調べていない。</li>
+      <li><strong>根拠</strong>: n = 6〜28 では、プログラムが見つけた最適解がこの形になっている。これらの n でこの形の最適解が存在することは確かめたが、すべての最適解が縞になるかは調べていない。</li>
       <li><strong>使い道</strong>: 既定のアルゴリズムは、この予想を前提に設計している（「縞から作る」の節）。</li>
     </ul>
   </section>
@@ -220,6 +229,7 @@ ul.plain, ol.plain { margin: 0; padding-left: 1.4em; display: grid; gap: 6px; }
       <li><strong>上の行を捨てる</strong>: DP の状態を (上の行, 今の行) から (今の行, その真下の強制マス) に変える。上の行が違っても強制マスが同じなら、その先の探索は同じになる。</li>
       <li><strong>DFS に戻る</strong>: 予算、下界、先読み、左右対称をそのまま DFS に入れると、DP より速く、メモリも経路の n 行分だけで済んだ。</li>
       <li><strong>縞から作って証明する</strong>: 最適解の内側は周期 3 の斜めの縞になっている。縞の行に限った盤面で解を先に作り、1 少ない予算で全部の塗り方を調べて最小だと証明する。n = 22 が 552 秒から 164 秒になった。</li>
+      <li><strong>高い帯と、予算の余裕</strong>: 帯の最小を DFS で求めて帯を n の半分まで高くし、次の行の自由なマスは予算の余裕の個数までしか選ばないようにした。n = 23 が 1,940 秒から 51 秒になり、n = 28 まで届いた。</li>
     </ol>
   </section>
 
@@ -245,7 +255,7 @@ ul.plain, ol.plain { margin: 0; padding-left: 1.4em; display: grid; gap: 6px; }
       <div style="display:grid;gap:12px">
         <p>右の図では行 r（黄色の帯）の塗っていないマスから、行 r+1 の強制マス（橙）が決まっています。点線枠は行 r の塗ったマスの真下で、ここだけは塗っても塗らなくても構いません。</p>
         <p>そこで次の行の候補は「強制マス ∪ 自由マスの部分集合」になります。自由マスが k 個なら候補は 2<sup>k</sup> 通りで、行全体の 2<sup>n</sup> 通りよりずっと少なくなります。</p>
-        <p>部分集合はビット演算 <code>sub = (sub - 1) &amp; cur</code> で全部列挙します。</p>
+        <p>ただし全部は作りません。「今までの塗り数 + 強制マス + その下の行の下界」と予算の差（予算の余裕）を求め、自由マスを余裕の個数までしか足しません。何も足さない候補から始め、低いビットから 1 個ずつ足していく順に再帰で列挙します（<code>dfs.rs</code> の <code>choose</code>）。</p>
       </div>
       <figure>
         <svg id="free-svg" role="img" aria-label="強制マスと自由マスの図"></svg>
@@ -287,7 +297,7 @@ ul.plain, ol.plain { margin: 0; padding-left: 1.4em; display: grid; gap: 6px; }
   <section>
     <div class="eyebrow">デモ（dfs.rs）</div>
     <h2>DFS の探索を 1 手ずつ見る</h2>
-    <p><code>src/dfs.rs</code> と同じ手順を、このページの中で動かしています。探索ノード数は、<code>cargo run --release -- n</code> が表示する nodes と一致します。</p>
+    <p><code>src/dfs.rs</code> と同じ手順を、このページの中で動かしています。探索ノード数は、<code>cargo run --release -- n --algo dfs</code> が表示する nodes と一致します。</p>
     <div class="demo">
       <div class="controls">
         <label for="sel-n">盤面 n
@@ -333,7 +343,7 @@ ul.plain, ol.plain { margin: 0; padding-left: 1.4em; display: grid; gap: 6px; }
   <section>
     <div class="eyebrow">実行結果（dfs.rs）</div>
     <h2>DFS の計測</h2>
-    <p>リリースビルド（<code>cargo run --release -- 3 --to 15</code>）での計測値です。探索ノード数はデモの「探索ノード数」と同じ数え方です。</p>
+    <p>リリースビルド（<code>cargo run --release -- 3 --to 15 --algo dfs</code>）での計測値です。探索ノード数はデモの「探索ノード数」と同じ数え方です。</p>
     <div class="table-wrap">
       <table>
         <thead><tr><th>n</th><th class="num">結果</th><th class="num">OEIS</th><th class="num">探索ノード数</th><th class="num">時間</th></tr></thead>
@@ -381,7 +391,7 @@ c + anchored[n - 1 - k] &lt;= budget</code></pre>
       <li><strong>B<sub>h</sub></strong>: 盤の下端に接する高さ h の帯の最小塗り数（下の外側は塗れない）。</li>
       <li>残りの m 行を「下端の帯 1 つ + 自由な帯いくつか」に分けて最小値を足せば、下界になる。分け方の中で一番大きいものを使う。</li>
     </ul>
-    <p>帯の最小値は、帯を左から右へ 1 列ずつ決める DP で計算します。行単位の強制の計算を 90° 回したもので、状態は (左の列, 今の列) の 4<sup>h</sup> 通りです。h = 9 まで使っています。</p>
+    <p>帯の最小値は、帯を左から右へ 1 列ずつ決めて求めます。行単位の強制の計算を 90° 回したものです。最初は状態 (左の列, 今の列) の DP で計算していましたが、状態が 4<sup>h</sup> 通りあり、h = 9 が限界でした。今は同じ計算を DFS で行い（<code>src/strip_dfs.rs</code>）、残りの列の見積もりに幅の狭い帯の最小を使って枝を切ります。これで帯の高さを max(12, ⌈(n−1)/2⌉) まで上げられるようになりました。この高さなら、残りの行をいつも 2 本以内の帯で覆えるので、帯のつなぎ目による下界の甘さが減ります。</p>
 <pre><code>n = 16 で、下端に接する残り m 行の下界（m = 0..16）
 0, 6, 13, 19, 27, 32, 39, 44, 50, 56, 61, 67, 73, 79, 85, 91, 96</code></pre>
     <p>16 行全体の下界は 96 で、答えの 102 との差は 6 しかありません。最適値ぎりぎりの予算で判定すると、上の方で少し塗りすぎた状態はすぐ予算オーバーになります。</p>
@@ -556,23 +566,29 @@ c + anchored[n - 1 - k] &lt;= budget</code></pre>
     <p>DFS の時間の約 3 分の 2 は、解ありの予算で解を探す時間でした。ところが a(n) を確定させるのに必要なのは、「a(n) 個の解が 1 つある」ことと「a(n) − 1 個では塗れない」ことだけです。前者は探索で見つけなくても、作れば十分です。今の既定（<code>--algo stripes-dfs</code>）は次の手順で解きます。</p>
     <ol class="plain">
       <li><strong>縞の解を作る</strong>: 予想 2 のとおり、上下 2 行と左右 2 列を除いて全部の行が周期 3 の縞になる最適解がある（n = 6〜22 で確認）。この形の行だけに限った盤面の中で、最小の解を作る。</li>
-      <li><strong>真ん中から作る</strong>: 真ん中の 2 行を縞の行（48 通り）から選び、上下の端へ 1 行ずつ伸ばす。2 行が決まれば上側と下側は互いに関係しないので、別々に最小を求めて足す。「決まった 2 行と、端までの行数」ごとに結果を覚えて使い回す。</li>
+      <li><strong>真ん中から作る</strong>: 真ん中の 2 行を縞の行（48 通り）から選び、上下の端へ 1 行ずつ伸ばす。予算は証明済みの上限から始め、予算以内の縞の解が 1 つ見つかった時点で止める（結果を覚える表は使わないので、メモリは経路の分だけ）。</li>
       <li><strong>最小だと証明する</strong>: 作った解の塗り数を U として、予算 U − 1 の DFS で全部の塗り方を調べる。解がなければ a(n) = U。解があれば、その塗り数を新しい U にして繰り返す。</li>
     </ol>
     <p>縞の制限は解を作る側にしか使わないので、結論は制限のない探索と同じく厳密です。</p>
     <p class="note">この方法は、「予想」の節の予想 2 を前提に設計しています。予想が外れても答えは正しいままです。縞の解が最小でなければ、予算 U − 1 の DFS が解を見つけ、そこからさらに下っていきます。ただしその場合は、DFS が解ありの予算を探索することになり、速さの利点はなくなります。</p>
     <div class="table-wrap">
       <table>
-        <thead><tr><th>n</th><th class="num">縞の解を作る</th><th class="num">証明（予算 a(n) − 1）</th><th class="num">合計</th><th class="num">DFS</th></tr></thead>
+        <thead><tr><th>n</th><th class="num">縞の解を作る</th><th class="num">証明（予算 a(n) − 1）</th><th class="num">合計</th><th class="num">v0.3.0 の合計</th></tr></thead>
         <tbody>
-          <tr><td class="mono">19</td><td class="num">0.56 秒</td><td class="num">1.7 秒</td><td class="num">2.2 秒</td><td class="num">5.3 秒</td></tr>
-          <tr><td class="mono">20</td><td class="num">1.1 秒</td><td class="num">11.1 秒</td><td class="num">12.2 秒</td><td class="num">54 秒</td></tr>
-          <tr><td class="mono">21</td><td class="num">2.3 秒</td><td class="num">44 秒</td><td class="num">46.4 秒</td><td class="num">168 秒</td></tr>
-          <tr><td class="mono">22</td><td class="num">4.6 秒</td><td class="num">159 秒</td><td class="num">164 秒</td><td class="num">552 秒</td></tr>
+          <tr><td class="mono">19</td><td class="num">0.60 秒</td><td class="num">0.07 秒</td><td class="num">0.67 秒</td><td class="num">2.2 秒</td></tr>
+          <tr><td class="mono">20</td><td class="num">1.7 秒</td><td class="num">1.6 秒</td><td class="num">3.3 秒</td><td class="num">12.2 秒</td></tr>
+          <tr><td class="mono">21</td><td class="num">2.8 秒</td><td class="num">1.8 秒</td><td class="num">4.7 秒</td><td class="num">46.4 秒</td></tr>
+          <tr><td class="mono">22</td><td class="num">4.0 秒</td><td class="num">6.0 秒</td><td class="num">9.9 秒</td><td class="num">164 秒</td></tr>
+          <tr><td class="mono">23</td><td class="num">21 秒</td><td class="num">31 秒</td><td class="num">51 秒</td><td class="num">1,940 秒</td></tr>
+          <tr><td class="mono">24</td><td class="num">32 秒</td><td class="num">65 秒</td><td class="num">97 秒</td><td class="num"></td></tr>
+          <tr><td class="mono">25</td><td class="num">49 秒</td><td class="num">111 秒</td><td class="num">159 秒</td><td class="num"></td></tr>
+          <tr><td class="mono">26</td><td class="num">146 秒</td><td class="num">485 秒</td><td class="num">631 秒</td><td class="num"></td></tr>
+          <tr><td class="mono">27</td><td class="num">259 秒</td><td class="num">1,054 秒</td><td class="num">1,313 秒</td><td class="num"></td></tr>
+          <tr><td class="mono">28</td><td class="num">324 秒</td><td class="num">1,988 秒</td><td class="num">2,312 秒</td><td class="num"></td></tr>
         </tbody>
       </table>
     </div>
-    <p>「縞の解を作る」には、最初に下界を計算する 0.2 秒ほどを含みます。残りの時間は、予算 a(n) − 1 で全部の塗り方を調べる部分です。ここは縞に頼れないので、速くするには並列化や DFS へのキャッシュが要ります。</p>
+    <p>「縞の解を作る」には、最初に下界を計算する時間を含みます。残りの時間は、予算 a(n) − 1 で全部の塗り方を調べる部分です。ここは縞に頼れないので、さらに速くするには並列化などが要ります。</p>
   </section>
 
   <section>
@@ -586,7 +602,8 @@ c + anchored[n - 1 - k] &lt;= budget</code></pre>
           <tr><td><code>src/stripes.rs</code></td><td>縞の行の判定（<code>is_striped</code>）と一覧（<code>rows</code>）</td></tr>
           <tr><td><code>src/dfs.rs</code></td><td>予算付きの行単位 DFS。<code>admit</code> が進む前の判定、<code>rec</code> が行ごとの再帰</td></tr>
           <tr><td><code>src/dp.rs</code></td><td>予算付きの行単位 DP。<code>forward</code> が表 2 枚の DP、<code>search</code> が予算の判定、<code>reconstruct</code> と <code>pin_far_end</code> が盤面の復元</td></tr>
-          <tr><td><code>src/bound.rs</code></td><td>帯の下界。<code>strip_min</code> が帯の最小塗り数、<code>lower_bounds</code> が残りの行の下界。DFS と DP の両方で使う</td></tr>
+          <tr><td><code>src/bound.rs</code></td><td>帯の下界。<code>lower_bounds</code> が残りの行の下界、<code>strip_height</code> が帯の高さの上限。DFS と DP の両方で使う</td></tr>
+          <tr><td><code>src/strip_dfs.rs</code></td><td>列ごとの DFS で帯の最小を求める（<code>strip_min_dfs</code>）</td></tr>
           <tr><td><code>src/row.rs</code></td><td>行の共通の操作。<code>forced_below</code>（強制マスの計算）、状態のキー、左右反転</td></tr>
           <tr><td><code>src/brute.rs</code></td><td>全 2<sup>n²</sup> 通りを調べる総当たり。答え合わせ用（n ≤ 5 程度）</td></tr>
           <tr><td><code>src/board.rs</code></td><td>盤面 <code>Board</code> と、条件を満たすか確かめる <code>is_valid</code></td></tr>
@@ -599,7 +616,7 @@ c + anchored[n - 1 - k] &lt;= budget</code></pre>
     <ol class="plain">
       <li><strong>証明の段階の並列化</strong>: 予算 a(n) − 1 の DFS は、行 0 の候補ごとに独立しているので、コア数に比例して速くできる</li>
       <li><strong>下界をきつくする</strong>: 下界と答えの差は n = 16〜19 で 6〜8。予算 1 の差で状態は約 4 倍変わるので、下界を 1 詰めるのは n を 1 小さくするのとほぼ同じ効果。帯を高くする、今の行に応じた下界にする、など</li>
-      <li><strong>DFS にキャッシュを付ける</strong>: 「この状態は残り予算 A 以下では解けない」を固定サイズの表に覚え、同じ状態に来たら調べ直さない。メモリを固定したまま、大きい n での調べ直しを減らせる</li>
+      <li><strong>真ん中から探す証明</strong>: 真ん中の行から始めると、上下の残りがどちらも端に接した帯になり、真ん中の行に使える塗りが予算で強く絞られる（n = 26 で 2 行の組が 346 万通り）。試作では、組ごとの上下の探索が重なって今の証明より遅かったので、改良の余地がある</li>
       <li><strong>一般の n での証明</strong>: 差が同じ値を 3 回ずつ繰り返す規則と、斜めの縞の解の形から、上限と下限を理論で示す</li>
     </ol>
   </section>
@@ -784,7 +801,7 @@ c + anchored[n - 1 - k] &lt;= budget</code></pre>
   const LB = {};
   function lowerBounds(n) {
     if (LB[n]) return LB[n];
-    const maxH = Math.min(9, n);
+    const maxH = Math.min(n, Math.max(12, Math.ceil((n - 1) / 2))); // bound.rs の strip_height と同じ
     const strip = (h, botFree) => h === 0 ? 0 : stripMin(n, h, true, botFree);
     const freeStrip = [], bottomStrip = [];
     for (let h = 0; h <= maxH; h++) { freeStrip.push(strip(h, true)); bottomStrip.push(strip(h, false)); }
@@ -840,10 +857,19 @@ c + anchored[n - 1 - k] &lt;= budget</code></pre>
         return true;
       }
       const forced = forcedBelow(n, up, cur);
-      yield S("forced", `行 ${k} を判定。行 ${k + 1} は強制マス ${popcount(forced)} 個が決まり、自由マスは ${popcount(cur)} 個（${1 << popcount(cur)} 通り）。`, { r: k, forced, free: cur, painted: c });
-      let sub = cur;
-      for (;;) {
-        const down = forced | sub, w = c + popcount(down);
+      // dfs.rs と同じく、予算の余裕の個数までしか自由マスを足さない
+      const base = c + popcount(forced);
+      const slack = st.budget - (base + lb[n - 2 - k]);
+      if (slack < 0) {
+        yield S("cut", `行 ${k} を判定。行 ${k + 1} の強制マス ${popcount(forced)} 個と、その下の行の下界を足すと予算を超える。この先は調べない。`, { r: k, forced, painted: c });
+        return false;
+      }
+      yield S("forced", `行 ${k} を判定。行 ${k + 1} は強制マス ${popcount(forced)} 個が決まり、自由マスは ${popcount(cur)} 個。予算の余裕は ${slack} 個なので、自由マスから ${slack} 個までを選んで足す。`, { r: k, forced, free: cur, painted: c });
+      const bits = [];
+      for (let m = cur; m; m &= m - 1) bits.push(m & -m);
+      // dfs.rs の choose と同じ順番: 何も足さない候補、bits[0] を足す候補、bits[0..1] を足す候補、…
+      function* choose(start, chosen, left) {
+        const down = forced | chosen, w = base + popcount(chosen);
         const ch = check(k + 1, cur, down, w);
         rows.push(down);
         if (ch.ok) {
@@ -853,10 +879,14 @@ c + anchored[n - 1 - k] &lt;= budget</code></pre>
           yield cut(k + 1, cur, down, w, ch);
         }
         rows.pop();
-        if (sub === 0) break;
-        sub = (sub - 1) & cur;
+        if (left > 0) {
+          for (let i = start; i < bits.length; i++) {
+            if (yield* choose(i + 1, chosen | bits[i], left - 1)) return true;
+          }
+        }
+        return false;
       }
-      return false;
+      return yield* choose(0, 0, slack);
     }
 
     for (;;) {
@@ -869,7 +899,7 @@ c + anchored[n - 1 - k] &lt;= budget</code></pre>
         if (ch.ok) {
           yield S("choose", `行 0 を ${show(first)} に決めて進む（塗り ${c} 個）。`, { r: 0, painted: c });
           if (yield* rec(0, 0, first, c)) {
-            yield S("done", `探索が終わりました。a(${n}) = ${st.budget} です。探索ノード数 ${st.nodes} は、cargo run --release -- ${n} の nodes と同じです。`, { r: -1 });
+            yield S("done", `探索が終わりました。a(${n}) = ${st.budget} です。探索ノード数 ${st.nodes} は、cargo run --release -- ${n} --algo dfs の nodes と同じです。`, { r: -1 });
             return;
           }
         } else {
@@ -1146,11 +1176,11 @@ c + anchored[n - 1 - k] &lt;= budget</code></pre>
   })();
 
   /* ---- 結果表 ---- */
-  const RES = [[3, 5, 5, 4, "92 µs"], [4, 8, 8, 5, "53 µs"], [5, 11, 11, 9, "0.17 ms"],
-               [6, 17, 17, 80, "0.92 ms"], [7, 21, 21, 15, "4.1 ms"], [8, 28, 28, 88, "20 ms"],
-               [9, 35, 35, 335, "95 ms"], [10, 42, 42, 421, "0.11 s"], [11, 51, 51, 3386, "0.13 s"],
-               [12, 60, 60, 10218, "0.14 s"], [13, 69, 69, 18431, "0.16 s"], [14, 80, 80, 197804, "0.21 s"],
-               [15, 91, 91, 466183, "0.29 s"]];
+  const RES = [[3, 5, 5, 4, "18 µs"], [4, 8, 8, 9, "4.1 µs"], [5, 11, 11, 6, "5.6 µs"],
+               [6, 17, 17, 12, "4.4 µs"], [7, 21, 21, 11, "5.6 µs"], [8, 28, 28, 74, "13 µs"],
+               [9, 35, 35, 204, "20 µs"], [10, 42, 42, 371, "38 µs"], [11, 51, 51, 3472, "0.24 ms"],
+               [12, 60, 60, 5486, "0.41 ms"], [13, 69, 69, 5564, "0.48 ms"], [14, 80, 80, 42769, "4.3 ms"],
+               [15, 91, 91, 133753, "19 ms"]];
   el("results").innerHTML = RES.map(([n, got, oeis, nodes, t]) =>
     `<tr><td class="mono">${n}</td><td class="num">${got ?? "–"}</td><td class="num">${oeis}</td>` +
     `<td class="num">${nodes === null ? "–" : nodes.toLocaleString()}</td><td class="num">${t}</td></tr>`
